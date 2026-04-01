@@ -1480,6 +1480,10 @@
                     setTimeout(() => {
                         managerOcrProgress.classList.add('hidden');
                         showToast('成功', '文字识别完成', 'success');
+                        // 自动执行文字处理
+                        setTimeout(() => {
+                            processManagerText();
+                        }, 500);
                     }, 500);
                 })
                 .catch(error => {
@@ -2064,6 +2068,10 @@
                     setTimeout(() => {
                         inspectorOcrProgress.classList.add('hidden');
                         showToast('成功', '文字识别完成', 'success');
+                        // 自动执行文字处理
+                        setTimeout(() => {
+                            processInspectorText();
+                        }, 500);
                     }, 500);
                 })
                 .catch(error => {
