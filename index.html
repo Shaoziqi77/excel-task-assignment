@@ -1,0 +1,3040 @@
+<html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>周期测评任务分配系统</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        info: '#06b6d4',
+                        light: '#f8fafc',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    boxShadow: {
+                        card: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .transition-all-300 {
+                transition: all 300ms ease-in-out;
+            }
+            .card {
+                @apply bg-white rounded-lg shadow-card p-6 transition-all-300;
+            }
+            .card:hover {
+                @apply shadow-card-hover;
+            }
+            .btn {
+                @apply px-4 py-2 rounded-md font-medium transition-all-300 focus:outline-none focus:ring-2 focus:ring-opacity-50;
+            }
+            .btn-primary {
+                @apply bg-primary text-white hover:bg-blue-600 focus:ring-blue-500;
+            }
+            .btn-secondary {
+                @apply bg-secondary text-white hover:bg-slate-600 focus:ring-slate-500;
+            }
+            .btn-success {
+                @apply bg-success text-white hover:bg-green-600 focus:ring-green-500;
+            }
+            .btn-danger {
+                @apply bg-danger text-white hover:bg-red-600 focus:ring-red-500;
+            }
+            .btn-purple {
+                @apply bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-500;
+            }
+            .input-field {
+                @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+            }
+            .label {
+                @apply block text-sm font-medium text-gray-700 mb-1;
+            }
+            .drag-area {
+                @apply border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-all-300;
+            }
+            .drag-area.active {
+                @apply border-primary bg-blue-50;
+            }
+            .drag-area:hover {
+                @apply border-primary;
+            }
+            .badge {
+                @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+            }
+            .badge-blue {
+                @apply bg-blue-100 text-blue-800;
+            }
+            .badge-green {
+                @apply bg-green-100 text-green-800;
+            }
+            .badge-yellow {
+                @apply bg-yellow-100 text-yellow-800;
+            }
+            .badge-red {
+                @apply bg-red-100 text-red-800;
+            }
+            .progress-bar {
+                @apply h-2 bg-gray-200 rounded-full overflow-hidden;
+            }
+            .progress-value {
+                @apply h-full bg-primary transition-all duration-300;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">周期评测任务分配系统</h1>
+                    <p class="text-gray-600 mt-1">简化工作分配流程</p>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <button id="helpBtn" class="btn btn-secondary">
+                        <i class="fa fa-question-circle mr-2"></i>使用帮助
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Progress Indicator -->
+            <div class="mb-8">
+                <div class="flex justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700">进度</span>
+                    <span id="progressText" class="text-sm font-medium text-primary">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressValue" class="progress-value" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-xs text-gray-500">
+                    <span>文件上传</span>
+                    <span>负责人分配</span>
+                    <span>检查人分配</span>
+                    <span>交付时间</span>
+                    <span>生成结果</span>
+                </div>
+            </div>
+
+            <!-- Step 1: File Upload -->
+            <section id="step1" class="card mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-upload mr-2 text-primary"></i>上传Excel文件
+                </h2>
+                <div id="fileDragArea" class="drag-area">
+                    <div class="flex flex-col items-center justify-center">
+                        <i class="fa fa-file-excel-o text-5xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600 mb-2">拖拽Excel文件到此处，或点击上传</p>
+                        <p class="text-gray-500 text-sm">支持 .xlsx, .xls, .csv 格式</p>
+                        <input type="file" id="fileInput" class="hidden" accept=".xlsx,.xls,.csv">
+                        <button id="browseBtn" class="btn btn-primary mt-4">
+                            <i class="fa fa-folder-open mr-2"></i>浏览文件
+                        </button>
+                    </div>
+                </div>
+                <div id="fileInfo" class="mt-4 hidden">
+                    <div class="flex items-center p-3 bg-blue-50 rounded-lg">
+                        <i class="fa fa-file-excel-o text-2xl text-blue-500 mr-3"></i>
+                        <div>
+                            <p id="fileName" class="font-medium text-gray-800"></p>
+                            <p id="fileSize" class="text-sm text-gray-600"></p>
+                        </div>
+                        <button id="removeFileBtn" class="ml-auto text-gray-500 hover:text-red-500">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="totalPagesSection" class="mt-4 hidden">
+                    <div class="p-4 bg-green-50 rounded-lg">
+                        <h3 class="font-medium text-gray-800 mb-2">文件分析结果</h3>
+                        <div class="flex items-center">
+                            <div class="mr-4">
+                                <span class="text-sm text-gray-600">待测评总页数:</span>
+                                <span id="totalPages" class="text-2xl font-bold text-green-600 ml-2">0</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600">任务数量:</span>
+                                <span id="taskCount" class="text-xl font-semibold text-green-600 ml-2">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Excel文件预览窗口 -->
+                <div id="excelPreviewSection" class="mt-4 hidden">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-medium text-gray-800 mb-2">Excel文件预览</h3>
+                        <div class="overflow-y-auto max-h-80 pr-2" style="scrollbar-width: thin; scrollbar-color: #cbd5e0 #f1f5f9;">
+                            <div id="excelPreviewContent" class="bg-white rounded-lg shadow-sm">
+                                <!-- Excel预览内容将在这里动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 信息展示模块 -->
+                <div id="infoDisplayModule" class="mt-4 hidden">
+                    <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-semibold text-purple-800">工作安排提示</h3>
+                            <button id="copyInfoBtn" class="btn btn-sm btn-purple text-white">
+                                <i class="fa fa-copy mr-1"></i>复制
+                            </button>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border border-purple-100">
+                            <p id="workScheduleText" class="text-lg font-medium text-gray-800 leading-relaxed">
+                                今天约有0页周期任务，请大家按比例报名，需在下一个工作日 17:00前完成
+                            </p>
+                        </div>
+                        <div id="copySuccessToast" class="mt-2 hidden">
+                            <div class="bg-green-100 text-green-800 text-sm px-3 py-1 rounded flex items-center">
+                                <i class="fa fa-check-circle mr-1"></i>已复制
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2: Manager Assignment -->
+            <section id="step2" class="card mb-6 hidden">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-users mr-2 text-primary"></i>负责人分配
+                </h2>
+                
+                <div class="mb-6">
+                    <h3 class="label">上传微信截图</h3>
+                    <div id="managerScreenshotArea" class="drag-area">
+                        <div class="flex flex-col items-center justify-center">
+                            <i class="fa fa-picture-o text-5xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">拖拽微信截图到此处，或点击上传</p>
+                            <p class="text-gray-500 text-sm">支持 .jpg, .jpeg, .png 格式</p>
+                            <input type="file" id="managerScreenshotInput" class="hidden" accept="image/*" multiple="">
+                            <button id="managerScreenshotBtn" class="btn btn-primary mt-4">
+                                <i class="fa fa-image mr-2"></i>选择图片
+                            </button>
+                        </div>
+                    </div>
+                    <div id="managerScreenshotPreview" class="mt-4 hidden">
+                        <div class="flex flex-wrap gap-2">
+                            <!-- Preview images will be added here -->
+                        </div>
+                        <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                            <button id="recognizeManagerBtn" class="btn btn-secondary flex-1">
+                                <i class="fa fa-file-text-o mr-2"></i>识别文字
+                            </button>
+                            <button id="addMoreManagerBtn" class="btn btn-primary flex-1">
+                                <i class="fa fa-plus mr-2"></i>添加更多图片
+                            </button>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            支持多张图片批量识别，建议每张图片不超过10个人名
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="label">识别结果</h3>
+                    <div id="managerOcrResult" class="hidden">
+                        <div class="mb-2 flex justify-between">
+                            <span class="text-sm text-gray-600">识别状态:</span>
+                            <span id="managerOcrStatus" class="badge badge-yellow">处理中...</span>
+                        </div>
+                        <div id="managerOcrProgress" class="progress-bar mb-4 hidden">
+                            <div class="progress-value" style="width: 0%"></div>
+                        </div>
+                        <textarea id="managerOcrText" class="input-field h-32" readonly=""></textarea>
+                        <div class="mt-2 flex gap-2">
+                            <button id="processManagerTextBtn" class="btn btn-primary">
+                                <i class="fa fa-magic mr-2"></i>文字处理
+                            </button>
+                            <button id="clearManagerBtn" class="btn btn-secondary">
+                                <i class="fa fa-refresh mr-2"></i>重新识别
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="label">处理后结果</h3>
+                    <textarea id="managerProcessedText" class="input-field h-24" placeholder="处理后的文字将显示在这里，可以手动编辑"></textarea>
+                    <div class="mt-2 text-sm text-gray-500">
+                        <i class="fa fa-info-circle mr-1"></i>
+                        格式示例: 张三：5；李四：5；王五：5；
+                    </div>
+                </div>
+
+                <div id="managerAllocationResult" class="hidden">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-medium text-gray-800 mb-2">负责人分配结果</h3>
+                        <div id="managerAllocationList" class="space-y-2">
+                            <!-- Manager allocation will be displayed here -->
+                        </div>
+                        <div class="mt-4 flex justify-between">
+                            <div>
+                                <span class="text-sm text-gray-600">原始比例总和:</span>
+                                <span id="managerOriginalTotal" class="font-medium ml-2">0%</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600">调整后比例总和:</span>
+                                <span id="managerAdjustedTotal" class="font-medium text-green-600 ml-2">100%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Inspector Assignment -->
+            <section id="step3" class="card mb-6 hidden">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-search mr-2 text-primary"></i>检查人分配
+                </h2>
+                
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="label mb-0">抽取检查比例</h3>
+                        <div class="flex items-center">
+                            <input type="number" id="inspectPercentage" min="5" max="50" value="10" class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary focus:border-primary">
+                            <span class="text-sm font-medium text-gray-700 ml-1">%</span>
+                            <span class="text-xs text-gray-500 ml-2">（5%-50%）</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="label">上传微信截图</h3>
+                    <div id="inspectorScreenshotArea" class="drag-area">
+                        <div class="flex flex-col items-center justify-center">
+                            <i class="fa fa-picture-o text-5xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">拖拽微信截图到此处，或点击上传</p>
+                            <p class="text-gray-500 text-sm">支持 .jpg, .jpeg, .png 格式</p>
+                            <input type="file" id="inspectorScreenshotInput" class="hidden" accept="image/*" multiple="">
+                            <button id="inspectorScreenshotBtn" class="btn btn-primary mt-4">
+                                <i class="fa fa-image mr-2"></i>选择图片
+                            </button>
+                        </div>
+                    </div>
+                    <div id="inspectorScreenshotPreview" class="mt-4 hidden">
+                        <div class="flex flex-wrap gap-2">
+                            <!-- Preview images will be added here -->
+                        </div>
+                        <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                            <button id="recognizeInspectorBtn" class="btn btn-secondary flex-1">
+                                <i class="fa fa-file-text-o mr-2"></i>识别文字
+                            </button>
+                            <button id="addMoreInspectorBtn" class="btn btn-primary flex-1">
+                                <i class="fa fa-plus mr-2"></i>添加更多图片
+                            </button>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            支持多张图片批量识别，建议每张图片不超过10个人名
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="label">识别结果</h3>
+                    <div id="inspectorOcrResult" class="hidden">
+                        <div class="mb-2 flex justify-between">
+                            <span class="text-sm text-gray-600">识别状态:</span>
+                            <span id="inspectorOcrStatus" class="badge badge-yellow">处理中...</span>
+                        </div>
+                        <div id="inspectorOcrProgress" class="progress-bar mb-4 hidden">
+                            <div class="progress-value" style="width: 0%"></div>
+                        </div>
+                        <textarea id="inspectorOcrText" class="input-field h-32" readonly=""></textarea>
+                        <div class="mt-2 flex gap-2">
+                            <button id="processInspectorTextBtn" class="btn btn-primary">
+                                <i class="fa fa-magic mr-2"></i>文字处理
+                            </button>
+                            <button id="clearInspectorBtn" class="btn btn-secondary">
+                                <i class="fa fa-refresh mr-2"></i>重新识别
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="label">处理后结果</h3>
+                    <textarea id="inspectorProcessedText" class="input-field h-24" placeholder="处理后的文字将显示在这里，可以手动编辑"></textarea>
+                    <div class="mt-2 text-sm text-gray-500">
+                        <i class="fa fa-info-circle mr-1"></i>
+                        格式示例: 张三：5；李四：5；王五：5；
+                    </div>
+                </div>
+
+                <div id="inspectorAllocationResult" class="hidden">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h3 class="font-medium text-gray-800 mb-2">检查人分配结果</h3>
+                        <div id="inspectorAllocationList" class="space-y-2">
+                            <!-- Inspector allocation will be displayed here -->
+                        </div>
+                        <div class="mt-4 flex justify-between">
+                            <div>
+                                <span class="text-sm text-gray-600">原始比例总和:</span>
+                                <span id="inspectorOriginalTotal" class="font-medium ml-2">0%</span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600">调整后比例总和:</span>
+                                <span id="inspectorAdjustedTotal" class="font-medium text-green-600 ml-2">100%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="conflictWarning" class="mt-4 p-4 bg-yellow-50 rounded-lg hidden">
+                    <div class="flex items-start">
+                        <i class="fa fa-info-circle text-yellow-500 mt-1 mr-3"></i>
+                        <div>
+                            <h4 class="font-medium text-yellow-800">提示：存在人员重叠</h4>
+                            <p class="text-sm text-yellow-700 mt-1">以下人员同时出现在负责人和检查人中。系统将自动确保检查人不会检查自己负责的内容：</p>
+                            <ul id="conflictList" class="list-disc list-inside text-sm text-yellow-700 mt-2">
+                                <!-- Conflict list will be displayed here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 4: Delivery Time -->
+            <section id="step4" class="card mb-6 hidden">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-calendar mr-2 text-primary"></i>交付时间设置
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="label">交付日期</h3>
+                        <input type="date" id="deliveryDate" class="input-field">
+                    </div>
+                    <div>
+                        <h3 class="label">交付时间</h3>
+                        <input type="time" id="deliveryTime" class="input-field" value="17:00">
+                    </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h3 class="font-medium text-gray-800 mb-2" style="font-weight: bold;">交付时间确认（注：周四交付时间一般为14:00，此外默认为下一个工作日的17:00）</h3>
+                    <div class="flex items-center">
+                        <i class="fa fa-clock-o text-2xl text-blue-500 mr-3"></i>
+                        <span id="formattedDeliveryTime" class="text-xl font-semibold text-gray-800">--月--日 --:--</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 5: Generate Result -->
+            <section id="step5" class="card mb-6 hidden">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-check-circle mr-2 text-primary"></i>生成结果
+                </h2>
+                
+                <div class="p-6 bg-green-50 rounded-lg text-center">
+                    <i class="fa fa-check-circle text-5xl text-green-500 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">所有设置已完成</h3>
+                    <p class="text-gray-600 mb-6">点击下方按钮生成并下载结果文件</p>
+                    <button id="generateResultBtn" class="btn btn-success text-lg px-8 py-3">
+                        <i class="fa fa-download mr-2"></i>生成并下载Excel文件
+                    </button>
+                </div>
+                
+
+                
+                <div id="generationStatus" class="mt-6 hidden">
+                    <div class="mb-2 flex justify-between">
+                        <span class="text-sm text-gray-600">生成状态:</span>
+                        <span id="generationStatusText" class="badge badge-yellow">处理中...</span>
+                    </div>
+                    <div id="generationProgress" class="progress-bar">
+                        <div class="progress-value" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div id="downloadSection" class="mt-6 hidden">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <div class="flex items-center">
+                            <i class="fa fa-file-excel-o text-3xl text-blue-500 mr-4"></i>
+                            <div>
+                                <h3 class="font-medium text-gray-800">文件已生成</h3>
+                                <p id="generatedFileName" class="text-sm text-gray-600 mt-1"></p>
+                            </div>
+                            <a id="downloadLink" href="#" class="ml-auto btn btn-primary">
+                                <i class="fa fa-download mr-2"></i>下载
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Navigation Buttons -->
+        <div class="flex justify-between mt-8">
+            <div class="flex gap-4">
+                <button id="prevBtn" class="btn btn-secondary hidden">
+                    <i class="fa fa-arrow-left mr-2"></i>上一步
+                </button>
+            </div>
+            <div class="ml-auto">
+                <button id="nextBtn" class="btn btn-primary">
+                    下一步<i class="fa fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">使用帮助</h2>
+                    <button id="closeHelpBtn" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="font-medium text-gray-800 mb-2">1. 上传Excel文件</h3>
+                        <p class="text-gray-600">拖拽或点击上传包含任务信息的Excel文件，系统将自动计算总页数。</p>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-800 mb-2">2. 负责人分配</h3>
+                        <p class="text-gray-600">上传微信截图，系统将自动识别文字并处理格式。您可以手动调整识别结果，然后系统将根据比例分配任务。</p>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-800 mb-2">3. 检查人分配</h3>
+                        <p class="text-gray-600">设置检查比例，上传微信截图，系统将自动识别并处理文字。系统会确保负责人和检查人不重复。</p>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-800 mb-2">4. 设置交付时间</h3>
+                        <p class="text-gray-600">选择任务交付日期和时间，默认为下一个工作日的17:00。</p>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-800 mb-2">5. 生成结果</h3>
+                        <p class="text-gray-600">点击生成按钮，系统将根据您的设置生成Excel文件并提供下载。</p>
+                    </div>
+                </div>
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-500">
+</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-sm transform translate-y-full opacity-0 transition-all duration-300 z-50">
+        <div class="flex items-start">
+            <div id="toastIcon" class="text-green-500 mr-3">
+                <i class="fa fa-check-circle"></i>
+            </div>
+            <div class="flex-1">
+                <h4 id="toastTitle" class="font-medium text-gray-800"></h4>
+                <p id="toastMessage" class="text-sm text-gray-600 mt-1"></p>
+            </div>
+            <button id="closeToastBtn" class="text-gray-400 hover:text-gray-600 ml-4">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentStep = 1;
+        let uploadedFile = null;
+        let excelData = null;
+        let totalPages = 0;
+        let taskCount = 0;
+        let managerScreenshots = [];
+        let inspectorScreenshots = [];
+        let managerData = [];
+        let inspectorData = [];
+        let inspectPercentage = 10;
+        let nameMap = {
+            "菲": "刘雨菲",
+            "迪": "李迪", 
+            "益": "郝佳益",
+            "晨": "来晨",
+            "慧": "蹇文慧",
+            "曦": "李旻羲",
+            "园": "李梦园",
+            "娜": "符于娜",
+            "橙": "李橙橙", 
+            "洁": "李梦洁", 
+            "锐": "汪哲锐",
+            "雨": "郭小雨",
+            "莉": "段凯莉",
+            "壮": "马壮",
+            "宇": "阎思宇",
+            "通": "王国通",
+            "正": "韩正", 
+            "怡": "王子怡",
+            "琪": "崔雅琪",
+            "哲": "王哲",
+        };
+
+        // DOM 元素
+        const stepSections = [
+            document.getElementById('step1'),
+            document.getElementById('step2'),
+            document.getElementById('step3'),
+            document.getElementById('step4'),
+            document.getElementById('step5')
+        ];
+        const progressText = document.getElementById('progressText');
+        const progressValue = document.getElementById('progressValue');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModal = document.getElementById('helpModal');
+        const closeHelpBtn = document.getElementById('closeHelpBtn');
+        const toast = document.getElementById('toast');
+        const toastTitle = document.getElementById('toastTitle');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+        const closeToastBtn = document.getElementById('closeToastBtn');
+
+        // 文件上传相关元素
+        const fileDragArea = document.getElementById('fileDragArea');
+        const fileInput = document.getElementById('fileInput');
+        const browseBtn = document.getElementById('browseBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeFileBtn = document.getElementById('removeFileBtn');
+        const totalPagesSection = document.getElementById('totalPagesSection');
+        const totalPagesElement = document.getElementById('totalPages');
+        const taskCountElement = document.getElementById('taskCount');
+
+        // 负责人分配相关元素
+        const managerScreenshotArea = document.getElementById('managerScreenshotArea');
+        const managerScreenshotInput = document.getElementById('managerScreenshotInput');
+        const managerScreenshotBtn = document.getElementById('managerScreenshotBtn');
+        const managerScreenshotPreview = document.getElementById('managerScreenshotPreview');
+        const recognizeManagerBtn = document.getElementById('recognizeManagerBtn');
+        const managerOcrResult = document.getElementById('managerOcrResult');
+        const managerOcrStatus = document.getElementById('managerOcrStatus');
+        const managerOcrProgress = document.getElementById('managerOcrProgress');
+        const managerOcrText = document.getElementById('managerOcrText');
+        const processManagerTextBtn = document.getElementById('processManagerTextBtn');
+        const clearManagerBtn = document.getElementById('clearManagerBtn');
+        const managerProcessedText = document.getElementById('managerProcessedText');
+        const managerAllocationResult = document.getElementById('managerAllocationResult');
+        const managerAllocationList = document.getElementById('managerAllocationList');
+        const managerOriginalTotal = document.getElementById('managerOriginalTotal');
+        const managerAdjustedTotal = document.getElementById('managerAdjustedTotal');
+
+        // 检查人分配相关元素
+        const inspectPercentageElement = document.getElementById('inspectPercentage');
+        const inspectPercentageValue = document.getElementById('inspectPercentageValue');
+        const inspectorScreenshotArea = document.getElementById('inspectorScreenshotArea');
+        const inspectorScreenshotInput = document.getElementById('inspectorScreenshotInput');
+        const inspectorScreenshotBtn = document.getElementById('inspectorScreenshotBtn');
+        const inspectorScreenshotPreview = document.getElementById('inspectorScreenshotPreview');
+        const recognizeInspectorBtn = document.getElementById('recognizeInspectorBtn');
+        const inspectorOcrResult = document.getElementById('inspectorOcrResult');
+        const inspectorOcrStatus = document.getElementById('inspectorOcrStatus');
+        const inspectorOcrProgress = document.getElementById('inspectorOcrProgress');
+        const inspectorOcrText = document.getElementById('inspectorOcrText');
+        const processInspectorTextBtn = document.getElementById('processInspectorTextBtn');
+        const clearInspectorBtn = document.getElementById('clearInspectorBtn');
+        const inspectorProcessedText = document.getElementById('inspectorProcessedText');
+        const inspectorAllocationResult = document.getElementById('inspectorAllocationResult');
+        const inspectorAllocationList = document.getElementById('inspectorAllocationList');
+        const inspectorOriginalTotal = document.getElementById('inspectorOriginalTotal');
+        const inspectorAdjustedTotal = document.getElementById('inspectorAdjustedTotal');
+        const conflictWarning = document.getElementById('conflictWarning');
+        const conflictList = document.getElementById('conflictList');
+
+        // 交付时间相关元素
+        const deliveryDate = document.getElementById('deliveryDate');
+        const deliveryTime = document.getElementById('deliveryTime');
+        const formattedDeliveryTime = document.getElementById('formattedDeliveryTime');
+
+        // 结果生成相关元素
+        const generateResultBtn = document.getElementById('generateResultBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const generationStatus = document.getElementById('generationStatus');
+        const generationStatusText = document.getElementById('generationStatusText');
+        const generationProgress = document.getElementById('generationProgress');
+        const downloadSection = document.getElementById('downloadSection');
+        const generatedFileName = document.getElementById('generatedFileName');
+        const downloadLink = document.getElementById('downloadLink');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认交付日期为下一个工作日
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            // 如果明天是周末，则设置为下周一
+            if (tomorrow.getDay() === 0) { // 周日
+                tomorrow.setDate(tomorrow.getDate() + 1);
+            } else if (tomorrow.getDay() === 6) { // 周六
+                tomorrow.setDate(tomorrow.getDate() + 2);
+            }
+            const dateString = tomorrow.toISOString().split('T')[0];
+            deliveryDate.value = dateString;
+            updateFormattedDeliveryTime();
+
+            // 初始化进度条
+            updateProgress();
+
+            // 绑定事件
+            bindEvents();
+        });
+
+        // 绑定事件
+        function bindEvents() {
+            // 导航按钮
+            nextBtn.addEventListener('click', nextStep);
+            prevBtn.addEventListener('click', prevStep);
+
+            // 帮助模态框
+            helpBtn.addEventListener('click', () => {
+                helpModal.classList.remove('hidden');
+            });
+            closeHelpBtn.addEventListener('click', () => {
+                helpModal.classList.add('hidden');
+            });
+            window.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    helpModal.classList.add('hidden');
+                }
+            });
+
+            // Toast 通知
+            closeToastBtn.addEventListener('click', hideToast);
+
+            // 文件上传
+            browseBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileUpload);
+            fileDragArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileDragArea.classList.add('active');
+            });
+            fileDragArea.addEventListener('dragleave', () => {
+                fileDragArea.classList.remove('active');
+            });
+            fileDragArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileDragArea.classList.remove('active');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+            removeFileBtn.addEventListener('click', removeFile);
+
+            // 负责人截图上传
+            managerScreenshotBtn.addEventListener('click', () => managerScreenshotInput.click());
+            managerScreenshotInput.addEventListener('change', handleManagerScreenshotUpload);
+            managerScreenshotArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                managerScreenshotArea.classList.add('active');
+            });
+            managerScreenshotArea.addEventListener('dragleave', () => {
+                managerScreenshotArea.classList.remove('active');
+            });
+            managerScreenshotArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                managerScreenshotArea.classList.remove('active');
+                if (e.dataTransfer.files.length > 0) {
+                    handleManagerScreenshots(e.dataTransfer.files);
+                }
+            });
+            recognizeManagerBtn.addEventListener('click', recognizeManagerText);
+            processManagerTextBtn.addEventListener('click', processManagerText);
+            clearManagerBtn.addEventListener('click', clearManagerData);
+            managerProcessedText.addEventListener('input', validateManagerText);
+
+            // 检查人截图上传
+            inspectorScreenshotBtn.addEventListener('click', () => inspectorScreenshotInput.click());
+            inspectorScreenshotInput.addEventListener('change', handleInspectorScreenshotUpload);
+            inspectorScreenshotArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                inspectorScreenshotArea.classList.add('active');
+            });
+            inspectorScreenshotArea.addEventListener('dragleave', () => {
+                inspectorScreenshotArea.classList.remove('active');
+            });
+            inspectorScreenshotArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                inspectorScreenshotArea.classList.remove('active');
+                if (e.dataTransfer.files.length > 0) {
+                    handleInspectorScreenshots(e.dataTransfer.files);
+                }
+            });
+            recognizeInspectorBtn.addEventListener('click', recognizeInspectorText);
+            processInspectorTextBtn.addEventListener('click', processInspectorText);
+            clearInspectorBtn.addEventListener('click', clearInspectorData);
+            inspectorProcessedText.addEventListener('input', validateInspectorText);
+
+            // 检查比例数字输入
+            inspectPercentageElement.addEventListener('input', (e) => {
+                let value = parseInt(e.target.value);
+                // 确保值在有效范围内
+                if (value < 5) value = 5;
+                if (value > 50) value = 50;
+                e.target.value = value;
+                inspectPercentage = value;
+            });
+
+            // 复制按钮事件处理
+            const copyInfoBtn = document.getElementById('copyInfoBtn');
+            if (copyInfoBtn) {
+                copyInfoBtn.addEventListener('click', function() {
+                    const textToCopy = document.getElementById('workScheduleText').textContent;
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        // 显示复制成功提示
+                        const copySuccessToast = document.getElementById('copySuccessToast');
+                        copySuccessToast.classList.remove('hidden');
+                        setTimeout(() => {
+                            copySuccessToast.classList.add('hidden');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('复制失败:', err);
+                        showToast('错误', '复制失败，请手动复制', 'error');
+                    });
+                });
+            }
+            
+            // 添加失去焦点事件，确保值有效
+            inspectPercentageElement.addEventListener('blur', (e) => {
+                let value = parseInt(e.target.value);
+                if (isNaN(value) || value < 5) {
+                    e.target.value = 5;
+                    inspectPercentage = 5;
+                } else if (value > 50) {
+                    e.target.value = 50;
+                    inspectPercentage = 50;
+                } else {
+                    inspectPercentage = value;
+                }
+            });
+
+            // 交付时间
+            deliveryDate.addEventListener('change', updateFormattedDeliveryTime);
+            deliveryTime.addEventListener('change', updateFormattedDeliveryTime);
+
+            // 结果生成
+            generateResultBtn.addEventListener('click', generateResult);
+            resetBtn.addEventListener('click', resetApplication);
+        }
+
+        // 更新进度条
+        function updateProgress() {
+            const progress = ((currentStep - 1) / (stepSections.length - 1)) * 100;
+            progressText.textContent = `${Math.round(progress)}%`;
+            progressValue.style.width = `${progress}%`;
+        }
+
+        // 下一步
+        function nextStep() {
+            if (validateCurrentStep()) {
+                if (currentStep < stepSections.length) {
+                    stepSections[currentStep - 1].classList.add('hidden');
+                    currentStep++;
+                    stepSections[currentStep - 1].classList.remove('hidden');
+                    updateProgress();
+                    updateNavigationButtons();
+                }
+            }
+        }
+
+        // 上一步
+        function prevStep() {
+            if (currentStep > 1) {
+                stepSections[currentStep - 1].classList.add('hidden');
+                currentStep--;
+                stepSections[currentStep - 1].classList.remove('hidden');
+                updateProgress();
+                updateNavigationButtons();
+            }
+        }
+
+        // 更新导航按钮
+        function updateNavigationButtons() {
+            if (currentStep === 1) {
+                prevBtn.classList.add('hidden');
+            } else {
+                prevBtn.classList.remove('hidden');
+            }
+
+            if (currentStep === stepSections.length) {
+                nextBtn.classList.add('hidden');
+            } else {
+                nextBtn.classList.remove('hidden');
+            }
+        }
+
+        // 验证当前步骤
+        function validateCurrentStep() {
+            switch (currentStep) {
+                case 1:
+                    if (!uploadedFile) {
+                        showToast('错误', '请上传Excel文件', 'error');
+                        return false;
+                    }
+                    return true;
+                case 2:
+                    if (managerData.length === 0) {
+                        showToast('错误', '请完成负责人分配', 'error');
+                        return false;
+                    }
+                    return true;
+                case 3:
+                    if (inspectorData.length === 0) {
+                        showToast('错误', '请完成检查人分配', 'error');
+                        return false;
+                    }
+                    // 检查人员冲突，但不再阻止继续
+                    checkConflicts();
+                    return true;
+                case 4:
+                    if (!deliveryDate.value || !deliveryTime.value) {
+                        showToast('错误', '请设置交付时间', 'error');
+                        return false;
+                    }
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        // 显示Toast通知
+        function showToast(title, message, type = 'success') {
+            toastTitle.textContent = title;
+            toastMessage.textContent = message;
+            
+            if (type === 'success') {
+                toastIcon.innerHTML = '<i class="fa fa-check-circle"></i>';
+                toastIcon.className = 'text-green-500 mr-3';
+            } else if (type === 'error') {
+                toastIcon.innerHTML = '<i class="fa fa-exclamation-circle"></i>';
+                toastIcon.className = 'text-red-500 mr-3';
+            } else if (type === 'warning') {
+                toastIcon.innerHTML = '<i class="fa fa-exclamation-triangle"></i>';
+                toastIcon.className = 'text-yellow-500 mr-3';
+            } else if (type === 'info') {
+                toastIcon.innerHTML = '<i class="fa fa-info-circle"></i>';
+                toastIcon.className = 'text-blue-500 mr-3';
+            }
+            
+            toast.classList.remove('translate-y-full', 'opacity-0');
+            
+            // 3秒后自动隐藏
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(hideToast, 3000);
+        }
+
+        // 隐藏Toast通知
+        function hideToast() {
+            toast.classList.add('translate-y-full', 'opacity-0');
+        }
+
+        // 处理文件上传
+        function handleFileUpload(e) {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        }
+
+        // 处理文件
+        function handleFile(file) {
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            if (!['xlsx', 'xls', 'csv'].includes(fileExtension)) {
+                showToast('错误', '请上传Excel文件（.xlsx, .xls, .csv）', 'error');
+                return;
+            }
+
+            uploadedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('hidden');
+
+            // 显示处理进度
+            const processingToast = document.createElement('div');
+            processingToast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center';
+            processingToast.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>正在处理文件，请稍候...';
+            document.body.appendChild(processingToast);
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    let rawData = XLSX.utils.sheet_to_json(worksheet);
+
+                    // 查找必要的列
+                    let totalPagesColumn = null;
+                    let subTaskOrderColumn = null;
+                    
+                    if (rawData.length > 0) {
+                        const columns = Object.keys(rawData[0]);
+                        for (const col of columns) {
+                            if (col.includes('总页数')) {
+                                totalPagesColumn = col;
+                            }
+                            if (col.includes('子任务顺序')) {
+                                subTaskOrderColumn = col;
+                            }
+                        }
+                    }
+
+                    if (!totalPagesColumn) {
+                        throw new Error('未找到"总页数"列');
+                    }
+
+                    // 处理前统计
+                    const originalCount = rawData.length;
+                    const originalPages = rawData.reduce((sum, row) => sum + (parseFloat(row[totalPagesColumn]) || 0), 0);
+
+                    // 步骤1：删除子任务顺序为0的记录
+                    if (subTaskOrderColumn) {
+                        rawData = rawData.filter(row => {
+                            const order = parseInt(row[subTaskOrderColumn]) || 0;
+                            return order !== 0;
+                        });
+                    }
+
+                    // 步骤2：从高到低删除记录直到总页数在500-550之间
+                    const targetMinPages = 500;
+                    const targetMaxPages = 550;
+                    let currentPages = rawData.reduce((sum, row) => sum + (parseFloat(row[totalPagesColumn]) || 0), 0);
+                    
+                    if (subTaskOrderColumn && currentPages > targetMaxPages) {
+                        // 获取所有唯一的子任务顺序并排序（从高到低）
+                        const allOrders = [...new Set(rawData.map(row => parseInt(row[subTaskOrderColumn]) || 0))];
+                        allOrders.sort((a, b) => b - a);
+
+                        for (const order of allOrders) {
+                            if (currentPages <= targetMaxPages) break;
+                            
+                            const dataWithoutCurrentOrder = rawData.filter(row => {
+                                const rowOrder = parseInt(row[subTaskOrderColumn]) || 0;
+                                return rowOrder !== order;
+                            });
+                            
+                            const newPages = dataWithoutCurrentOrder.reduce((sum, row) => sum + (parseFloat(row[totalPagesColumn]) || 0), 0);
+                            
+                            // 检查删除后是否在目标范围内，或者是否会低于最小页数
+                            if (newPages >= targetMinPages || order === Math.min(...allOrders)) {
+                                rawData = dataWithoutCurrentOrder;
+                                currentPages = newPages;
+                            }
+                        }
+                    }
+
+                    // 步骤3：随机打乱剩余记录
+                    shuffleArray(rawData);
+
+                    // 保存处理后的数据
+                    excelData = rawData;
+                    taskCount = excelData.length;
+                    totalPages = currentPages;
+
+                    // 计算统计信息
+                    const deletedCount = originalCount - taskCount;
+                    const pagesReduced = originalPages - totalPages;
+
+                    // 更新UI
+                    totalPagesElement.textContent = totalPages;
+                    taskCountElement.textContent = taskCount;
+                    totalPagesSection.classList.remove('hidden');
+
+                    // 显示处理结果
+                    document.body.removeChild(processingToast);
+                    
+                    // 创建处理结果预览区域
+                    const processingResult = document.createElement('div');
+                    processingResult.className = 'mt-4 p-4 bg-green-50 rounded-lg border border-green-200';
+                    processingResult.innerHTML = `
+                        <h4 class="text-lg font-semibold text-green-800 mb-2">文件处理完成</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-600">原始记录数: ${originalCount}</p>
+                                <p class="text-sm text-gray-600">原始总页数: ${originalPages}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">保留记录数: ${taskCount}</p>
+                                <p class="text-sm text-gray-600">处理后总页数: <span class="font-bold text-green-700">${totalPages}</span></p>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-600">删除记录数: ${deletedCount}</p>
+                            <p class="text-sm text-gray-600">减少页数: ${pagesReduced}</p>
+                        </div>
+                    `;
+                    
+                    // 插入到总页数信息下方
+                    totalPagesSection.appendChild(processingResult);
+
+                    // 生成并显示Excel预览
+                    generateExcelPreview(excelData);
+
+                    // 生成并显示工作安排提示
+                    generateWorkScheduleInfo(totalPages);
+
+                    showToast('成功', '文件处理完成', 'success');
+                } catch (error) {
+                    console.error('Error processing file:', error);
+                    document.body.removeChild(processingToast);
+                    showToast('错误', '文件处理失败: ' + error.message, 'error');
+                    removeFile();
+                }
+            };
+            reader.onerror = function() {
+                showToast('错误', '文件读取失败', 'error');
+                removeFile();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 生成Excel文件预览
+        function generateExcelPreview(data) {
+            const excelPreviewSection = document.getElementById('excelPreviewSection');
+            const excelPreviewContent = document.getElementById('excelPreviewContent');
+            
+            if (!data || data.length === 0) {
+                excelPreviewContent.innerHTML = '<p class="p-4 text-center text-gray-500">暂无数据</p>';
+                excelPreviewSection.classList.remove('hidden');
+                return;
+            }
+            
+            // 获取所有列名
+            const columns = Object.keys(data[0]);
+            
+            // 创建表格
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+            `;
+            
+            // 添加表头
+            columns.forEach(col => {
+                tableHTML += `<th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${col}</th>`;
+            });
+            
+            tableHTML += `
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+            
+            // 添加数据行（最多显示前100行）
+            const displayData = data.slice(0, 100);
+            displayData.forEach((row, index) => {
+                const isEven = index % 2 === 0;
+                tableHTML += `<tr class="${isEven ? 'bg-white' : 'bg-gray-50'}">`;
+                
+                columns.forEach(col => {
+                    const value = row[col] || '';
+                    tableHTML += `<td class="px-3 py-2 whitespace-nowrap text-sm text-gray-600">${value}</td>`;
+                });
+                
+                tableHTML += '</tr>';
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            // 如果数据超过100行，显示提示
+            if (data.length > 100) {
+                tableHTML += `<div class="p-2 text-center text-sm text-gray-500">显示前100行，共${data.length}行</div>`;
+            }
+            
+            excelPreviewContent.innerHTML = tableHTML;
+            excelPreviewSection.classList.remove('hidden');
+        }
+
+        // 生成工作安排提示信息
+        function generateWorkScheduleInfo(pages) {
+            // 处理总页数（个位替换为0）
+            const roundedPages = Math.floor(pages / 10) * 10;
+            
+            // 计算下一个工作日
+            const today = new Date();
+            const nextWorkday = new Date(today);
+            let dayOffset = 1;
+            
+            // 找到下一个工作日（跳过周末）
+            while (true) {
+                nextWorkday.setDate(today.getDate() + dayOffset);
+                const dayOfWeek = nextWorkday.getDay();
+                if (dayOfWeek >= 1 && dayOfWeek <= 5) { // 周一到周五
+                    break;
+                }
+                dayOffset++;
+            }
+            
+            // 格式化日期
+            const month = nextWorkday.getMonth() + 1;
+            const day = nextWorkday.getDate();
+            const dateStr = `${month}月${day}日`;
+            
+            // 确定时间（周四为14:00，其他为17:00）
+            const dayOfWeek = nextWorkday.getDay();
+            const timeStr = dayOfWeek === 4 ? '14:00' : '17:00';
+            
+            // 生成提示文本
+            const infoText = `今天约有${roundedPages}页周期任务，请大家按比例报名，需在${dateStr} ${timeStr}前完成`;
+            
+            // 更新UI
+            const workScheduleText = document.getElementById('workScheduleText');
+            const infoDisplayModule = document.getElementById('infoDisplayModule');
+            
+            workScheduleText.textContent = infoText;
+            infoDisplayModule.classList.remove('hidden');
+        }
+
+        // 移除文件
+        function removeFile() {
+            uploadedFile = null;
+            excelData = null;
+            totalPages = 0;
+            taskCount = 0;
+            fileInfo.classList.add('hidden');
+            totalPagesSection.classList.add('hidden');
+            document.getElementById('excelPreviewSection').classList.add('hidden');
+            document.getElementById('infoDisplayModule').classList.add('hidden');
+            fileInput.value = '';
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 处理负责人截图上传
+        function handleManagerScreenshotUpload(e) {
+            if (e.target.files.length > 0) {
+                handleManagerScreenshots(e.target.files);
+            }
+        }
+
+        // 处理负责人截图
+        function handleManagerScreenshots(files) {
+            managerScreenshots = [];
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                
+                if (!['jpg', 'jpeg', 'png'].includes(fileExtension)) {
+                    showToast('错误', `文件 ${file.name} 不是有效的图片格式`, 'error');
+                    continue;
+                }
+                
+                managerScreenshots.push(file);
+            }
+            
+            if (managerScreenshots.length > 0) {
+                showManagerScreenshotPreview();
+                showToast('成功', `已上传 ${managerScreenshots.length} 张截图`, 'success');
+            }
+        }
+
+        // 显示负责人截图预览
+        function showManagerScreenshotPreview() {
+            // 保存当前的按钮状态
+            const hasAddMoreButton = document.getElementById('addMoreManagerBtn') !== null;
+            
+            managerScreenshotPreview.innerHTML = '';
+            managerScreenshotPreview.classList.remove('hidden');
+            
+            // 创建预览容器
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'flex flex-wrap gap-2';
+            
+            managerScreenshots.forEach((file, index) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const preview = document.createElement('div');
+                    preview.className = 'relative';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'w-20 h-20 object-cover rounded border';
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '<i class="fa fa-times"></i>';
+                    removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center';
+                    removeBtn.onclick = function() {
+                        managerScreenshots.splice(index, 1);
+                        if (managerScreenshots.length === 0) {
+                            managerScreenshotPreview.classList.add('hidden');
+                        } else {
+                            showManagerScreenshotPreview();
+                        }
+                    };
+                    
+                    preview.appendChild(img);
+                    preview.appendChild(removeBtn);
+                    previewContainer.appendChild(preview);
+                };
+                
+                reader.readAsDataURL(file);
+            });
+            
+            managerScreenshotPreview.appendChild(previewContainer);
+            
+            // 重新添加按钮
+            if (hasAddMoreButton) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'mt-4 flex flex-col sm:flex-row gap-2';
+                
+                const recognizeBtn = document.createElement('button');
+                recognizeBtn.id = 'recognizeManagerBtn';
+                recognizeBtn.className = 'btn btn-secondary flex-1';
+                recognizeBtn.innerHTML = '<i class="fa fa-file-text-o mr-2"></i>识别文字';
+                recognizeBtn.addEventListener('click', recognizeManagerText);
+                
+                const stitchBtn = document.createElement('button');
+                stitchBtn.id = 'stitchManagerBtn';
+                stitchBtn.className = 'btn btn-info flex-1';
+                stitchBtn.innerHTML = '<i class="fa fa-object-group mr-2"></i>图片拼接';
+                stitchBtn.addEventListener('click', stitchAndRecognizeManagerText);
+                
+                const addMoreBtn = document.createElement('button');
+                addMoreBtn.id = 'addMoreManagerBtn';
+                addMoreBtn.className = 'btn btn-primary flex-1';
+                addMoreBtn.innerHTML = '<i class="fa fa-plus mr-2"></i>添加更多图片';
+                addMoreBtn.addEventListener('click', () => {
+                    managerScreenshotInput.value = '';
+                    managerScreenshotInput.click();
+                });
+                
+                buttonContainer.appendChild(recognizeBtn);
+                buttonContainer.appendChild(stitchBtn);
+                buttonContainer.appendChild(addMoreBtn);
+                managerScreenshotPreview.appendChild(buttonContainer);
+                
+                const infoText = document.createElement('div');
+                infoText.className = 'mt-2 text-sm text-gray-500';
+                infoText.innerHTML = '<i class="fa fa-info-circle mr-1"></i>支持多张图片批量识别，建议每张图片不超过10个人名';
+                managerScreenshotPreview.appendChild(infoText);
+            }
+        }
+
+        // 识别负责人文字
+        function recognizeManagerText() {
+            if (managerScreenshots.length === 0) {
+                showToast('错误', '请先上传截图', 'error');
+                return;
+            }
+            
+            managerOcrResult.classList.remove('hidden');
+            managerOcrStatus.className = 'badge badge-yellow';
+            managerOcrStatus.textContent = '处理中...';
+            managerOcrProgress.classList.remove('hidden');
+            managerOcrText.value = '';
+            
+            // 显示拼接进度
+            managerOcrProgress.querySelector('.progress-value').style.width = '10%';
+            
+            // 读取所有图片
+            let loadedImages = [];
+            let loadedCount = 0;
+            
+            function loadImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const image = new Image();
+                        image.onload = function() {
+                            resolve(image);
+                        };
+                        image.onerror = reject;
+                        image.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            // 更新进度
+            function updateProgress(percent) {
+                managerOcrProgress.querySelector('.progress-value').style.width = `${percent}%`;
+            }
+            
+            // 加载所有图片
+            Promise.all(managerScreenshots.map(loadImage))
+                .then(images => {
+                    updateProgress(30);
+                    
+                    // 计算拼接后的画布大小
+                    const maxWidth = Math.max(...images.map(img => img.width));
+                    const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+                    
+                    // 创建拼接画布
+                    const canvas = document.createElement('canvas');
+                    canvas.width = maxWidth;
+                    canvas.height = totalHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 绘制所有图片
+                    let currentY = 0;
+                    images.forEach((image, index) => {
+                        // 图像预处理以提高OCR准确性
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = image.width;
+                        tempCanvas.height = image.height;
+                        
+                        // 绘制原始图像
+                        tempCtx.drawImage(image, 0, 0);
+                        
+                        // 应用对比度增强
+                        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                        const data = imageData.data;
+                        
+                        // 提高对比度
+                        const factor = 1.5; // 对比度因子
+                        const intercept = 128 * (1 - factor);
+                        
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, Math.max(0, data[i] * factor + intercept));     // 红
+                            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * factor + intercept)); // 绿
+                            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * factor + intercept)); // 蓝
+                        }
+                        
+                        tempCtx.putImageData(imageData, 0, 0);
+                        
+                        // 将处理后的图像绘制到拼接画布上
+                        const x = (maxWidth - image.width) / 2; // 居中显示
+                        ctx.drawImage(tempCanvas, x, currentY);
+                        
+                        // 绘制分隔线
+                        ctx.beginPath();
+                        ctx.moveTo(0, currentY + image.height - 1);
+                        ctx.lineTo(maxWidth, currentY + image.height - 1);
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        
+                        currentY += image.height;
+                        
+                        // 更新进度
+                        updateProgress(30 + (index + 1) * 40 / images.length);
+                    });
+                    
+                    updateProgress(80);
+                    
+                    // 执行OCR识别
+                    return Tesseract.recognize(
+                        canvas,
+                        'chi_sim',
+                        {
+                            logger: progress => {
+                                const progressPercent = Math.round(progress.progress * 100);
+                                const overallProgress = 80 + Math.round(progressPercent * 0.2);
+                                updateProgress(overallProgress);
+                            },
+                            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@微信：:;',
+                            preserve_interword_spaces: 1,
+                            tessedit_pageseg_mode: 6, // 假设一个统一的块文本
+                            user_defined_dpi: 300
+                        }
+                    );
+                })
+                .then(result => {
+                    updateProgress(100);
+                    managerOcrText.value = result.data.text;
+                    managerOcrStatus.className = 'badge badge-green';
+                    managerOcrStatus.textContent = '识别完成';
+                    
+                    setTimeout(() => {
+                        managerOcrProgress.classList.add('hidden');
+                        showToast('成功', '文字识别完成', 'success');
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('OCR error:', error);
+                    managerOcrStatus.className = 'badge badge-red';
+                    managerOcrStatus.textContent = '识别失败';
+                    managerOcrProgress.classList.add('hidden');
+                    showToast('错误', '文字识别失败: ' + error.message, 'error');
+                });
+        }
+
+        // 处理负责人文字
+        function processManagerText() {
+            const text = managerOcrText.value;
+            
+            if (!text.trim()) {
+                showToast('错误', '没有可处理的文字', 'error');
+                return;
+            }
+            
+            // 第一步：删除所有空格
+            let processedText = text.replace(/\s+/g, '');
+            
+            // 第二步：替换@微信为：
+            processedText = processedText.replace(/@微信/g, '：');
+            
+            // 显示处理后的原始文本
+            managerProcessedText.value = processedText;
+            
+            // 尝试提取姓名和比例
+            const namePattern = /([\u4e00-\u9fa5]+)[：:](\d+)/g;
+            let match;
+            let extractedText = '';
+            let hasMatches = false;
+            
+            while ((match = namePattern.exec(processedText)) !== null) {
+                hasMatches = true;
+                const name = match[1].trim();
+                const ratio = match[2].trim();
+                extractedText += `${name}：${ratio}；`;
+            }
+            
+            if (hasMatches) {
+                managerProcessedText.value = extractedText;
+                validateManagerText();
+                showToast('成功', '文字处理完成', 'success');
+            } else {
+                showToast('提示', '未检测到姓名和比例格式，请手动编辑', 'info');
+            }
+        }
+
+        // 验证负责人文字
+        function validateManagerText() {
+            const text = managerProcessedText.value;
+            
+            if (!text.trim()) {
+                managerAllocationResult.classList.add('hidden');
+                return;
+            }
+            
+            // 提取姓名和比例
+            const namePattern = /([\u4e00-\u9fa5]+)[：:]\s*(\d+)/g;
+            let match;
+            let managers = [];
+            let totalRatio = 0;
+            
+            while ((match = namePattern.exec(text)) !== null) {
+                const name = match[1].trim();
+                const ratio = parseInt(match[2].trim());
+                
+                // 检查是否是简称，如果是则转换为全名
+                const fullName = nameMap[name] || name;
+                
+                managers.push({
+                    name: fullName,
+                    originalRatio: ratio,
+                    adjustedRatio: 0
+                });
+                
+                totalRatio += ratio;
+            }
+            
+            if (managers.length > 0) {
+                // 计算调整后的比例（使用更精确的计算方法）
+                const ratios = managers.map(manager => {
+                    return (manager.originalRatio / totalRatio) * 100;
+                });
+                
+                // 先计算整数部分
+                managers.forEach((manager, index) => {
+                    manager.adjustedRatio = Math.floor(ratios[index]);
+                });
+                
+                // 计算总和
+                const adjustedTotal = managers.reduce((sum, manager) => sum + manager.adjustedRatio, 0);
+                const diff = 100 - adjustedTotal;
+                
+                // 按小数部分大小分配剩余的百分比
+                if (diff !== 0 && managers.length > 0) {
+                    const fractionalParts = ratios.map((ratio, index) => ({
+                        index: index,
+                        fractional: ratio - Math.floor(ratio)
+                    }));
+                    
+                    // 按小数部分降序排序
+                    fractionalParts.sort((a, b) => b.fractional - a.fractional);
+                    
+                    // 分配剩余的百分比
+                    for (let i = 0; i < diff; i++) {
+                        if (i < fractionalParts.length) {
+                            managers[fractionalParts[i].index].adjustedRatio += 1;
+                        }
+                    }
+                }
+                
+                managerData = managers;
+                displayManagerAllocation(managers, totalRatio);
+            } else {
+                managerAllocationResult.classList.add('hidden');
+                managerData = [];
+            }
+        }
+
+        // 显示负责人分配结果
+        function displayManagerAllocation(managers, originalTotal) {
+            managerAllocationList.innerHTML = '';
+            
+            managers.forEach(manager => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-medium';
+                nameSpan.textContent = manager.name;
+                
+                const ratioSpan = document.createElement('span');
+                ratioSpan.className = 'text-sm';
+                ratioSpan.innerHTML = `${manager.originalRatio}% <span class="text-gray-500">→</span> ${manager.adjustedRatio}%`;
+                
+                item.appendChild(nameSpan);
+                item.appendChild(ratioSpan);
+                managerAllocationList.appendChild(item);
+            });
+            
+            managerOriginalTotal.textContent = `${originalTotal}%`;
+            managerAdjustedTotal.textContent = '100%';
+            managerAllocationResult.classList.remove('hidden');
+        }
+
+        // 图片拼接并识别负责人文字
+        function stitchAndRecognizeManagerText() {
+            if (managerScreenshots.length === 0) {
+                showToast('错误', '请先上传截图', 'error');
+                return;
+            }
+            
+            if (managerScreenshots.length === 1) {
+                showToast('提示', '只有一张图片，无需拼接', 'info');
+                recognizeManagerText();
+                return;
+            }
+            
+            // 显示拼接预览弹窗
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.id = 'stitchPreviewModal';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto';
+            
+            modalContent.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">图片拼接预览</h3>
+                    <button id="closeStitchModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600 mb-2">拼接后的图片预览：</p>
+                    <div id="stitchedImageContainer" class="flex justify-center"></div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button id="cancelStitchBtn" class="btn btn-secondary">取消</button>
+                    <button id="confirmStitchBtn" class="btn btn-primary">确认并识别</button>
+                </div>
+            `;
+            
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+            
+            // 加载并拼接图片
+            let loadedImages = [];
+            let loadedCount = 0;
+            
+            function loadImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const image = new Image();
+                        image.onload = function() {
+                            resolve(image);
+                        };
+                        image.onerror = reject;
+                        image.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            Promise.all(managerScreenshots.map(loadImage))
+                .then(images => {
+                    // 计算拼接后的画布大小
+                    const maxWidth = Math.max(...images.map(img => img.width));
+                    const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+                    
+                    // 创建拼接画布
+                    const canvas = document.createElement('canvas');
+                    canvas.width = maxWidth;
+                    canvas.height = totalHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 绘制所有图片
+                    let currentY = 0;
+                    images.forEach((image, index) => {
+                        // 图像预处理以提高OCR准确性
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = image.width;
+                        tempCanvas.height = image.height;
+                        
+                        // 绘制原始图像
+                        tempCtx.drawImage(image, 0, 0);
+                        
+                        // 应用对比度增强
+                        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                        const data = imageData.data;
+                        
+                        // 提高对比度
+                        const factor = 1.5;
+                        const intercept = 128 * (1 - factor);
+                        
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, Math.max(0, data[i] * factor + intercept));
+                            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * factor + intercept));
+                            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * factor + intercept));
+                        }
+                        
+                        tempCtx.putImageData(imageData, 0, 0);
+                        
+                        // 将处理后的图像绘制到拼接画布上
+                        const x = (maxWidth - image.width) / 2;
+                        ctx.drawImage(tempCanvas, x, currentY);
+                        
+                        // 绘制分隔线
+                        if (index < images.length - 1) {
+                            ctx.beginPath();
+                            ctx.moveTo(0, currentY + image.height - 1);
+                            ctx.lineTo(maxWidth, currentY + image.height - 1);
+                            ctx.strokeStyle = '#000000';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                        
+                        currentY += image.height;
+                    });
+                    
+                    // 显示拼接后的图片
+                    const stitchedImage = document.createElement('img');
+                    stitchedImage.src = canvas.toDataURL();
+                    stitchedImage.className = 'max-w-full h-auto border rounded';
+                    document.getElementById('stitchedImageContainer').appendChild(stitchedImage);
+                    
+                    // 保存拼接后的画布
+                    window.stitchedManagerCanvas = canvas;
+                })
+                .catch(error => {
+                    console.error('Image stitching error:', error);
+                    showToast('错误', '图片拼接失败', 'error');
+                    document.body.removeChild(modal);
+                });
+            
+            // 绑定事件
+            document.getElementById('closeStitchModal').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('cancelStitchBtn').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('confirmStitchBtn').onclick = () => {
+                document.body.removeChild(modal);
+                
+                if (window.stitchedManagerCanvas) {
+                    // 执行OCR识别
+                    managerOcrResult.classList.remove('hidden');
+                    managerOcrStatus.className = 'badge badge-yellow';
+                    managerOcrStatus.textContent = '处理中...';
+                    managerOcrProgress.classList.remove('hidden');
+                    managerOcrText.value = '';
+                    
+                    Tesseract.recognize(
+                        window.stitchedManagerCanvas,
+                        'chi_sim',
+                        {
+                            logger: progress => {
+                                const progressPercent = Math.round(progress.progress * 100);
+                                managerOcrProgress.querySelector('.progress-value').style.width = `${progressPercent}%`;
+                            },
+                            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@微信：:;',
+                            preserve_interword_spaces: 1,
+                            tessedit_pageseg_mode: 6,
+                            user_defined_dpi: 300
+                        }
+                    ).then(result => {
+                        managerOcrText.value = result.data.text;
+                        managerOcrStatus.className = 'badge badge-green';
+                        managerOcrStatus.textContent = '识别完成';
+                        managerOcrProgress.classList.add('hidden');
+                        showToast('成功', '文字识别完成', 'success');
+                    }).catch(error => {
+                        console.error('OCR error:', error);
+                        managerOcrStatus.className = 'badge badge-red';
+                        managerOcrStatus.textContent = '识别失败';
+                        managerOcrProgress.classList.add('hidden');
+                        showToast('错误', '文字识别失败: ' + error.message, 'error');
+                    });
+                }
+            };
+        }
+
+        // 清除负责人数据
+        function clearManagerData() {
+            managerScreenshots = [];
+            managerScreenshotPreview.classList.add('hidden');
+            managerOcrResult.classList.add('hidden');
+            managerProcessedText.value = '';
+            managerAllocationResult.classList.add('hidden');
+            managerData = [];
+        }
+
+        // 处理检查人截图上传
+        function handleInspectorScreenshotUpload(e) {
+            if (e.target.files.length > 0) {
+                handleInspectorScreenshots(e.target.files);
+            }
+        }
+
+        // 处理检查人截图
+        function handleInspectorScreenshots(files) {
+            inspectorScreenshots = [];
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                
+                if (!['jpg', 'jpeg', 'png'].includes(fileExtension)) {
+                    showToast('错误', `文件 ${file.name} 不是有效的图片格式`, 'error');
+                    continue;
+                }
+                
+                inspectorScreenshots.push(file);
+            }
+            
+            if (inspectorScreenshots.length > 0) {
+                showInspectorScreenshotPreview();
+                showToast('成功', `已上传 ${inspectorScreenshots.length} 张截图`, 'success');
+            }
+        }
+
+        // 显示检查人截图预览
+        function showInspectorScreenshotPreview() {
+            // 保存当前的按钮状态
+            const hasAddMoreButton = document.getElementById('addMoreInspectorBtn') !== null;
+            
+            inspectorScreenshotPreview.innerHTML = '';
+            inspectorScreenshotPreview.classList.remove('hidden');
+            
+            // 创建预览容器
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'flex flex-wrap gap-2';
+            
+            inspectorScreenshots.forEach((file, index) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const preview = document.createElement('div');
+                    preview.className = 'relative';
+                    
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'w-20 h-20 object-cover rounded border';
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '<i class="fa fa-times"></i>';
+                    removeBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center';
+                    removeBtn.onclick = function() {
+                        inspectorScreenshots.splice(index, 1);
+                        if (inspectorScreenshots.length === 0) {
+                            inspectorScreenshotPreview.classList.add('hidden');
+                        } else {
+                            showInspectorScreenshotPreview();
+                        }
+                    };
+                    
+                    preview.appendChild(img);
+                    preview.appendChild(removeBtn);
+                    previewContainer.appendChild(preview);
+                };
+                
+                reader.readAsDataURL(file);
+            });
+            
+            inspectorScreenshotPreview.appendChild(previewContainer);
+            
+            // 重新添加按钮
+            if (hasAddMoreButton) {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'mt-4 flex flex-col sm:flex-row gap-2';
+                
+                const recognizeBtn = document.createElement('button');
+                recognizeBtn.id = 'recognizeInspectorBtn';
+                recognizeBtn.className = 'btn btn-secondary flex-1';
+                recognizeBtn.innerHTML = '<i class="fa fa-file-text-o mr-2"></i>识别文字';
+                recognizeBtn.addEventListener('click', recognizeInspectorText);
+                
+                const stitchBtn = document.createElement('button');
+                stitchBtn.id = 'stitchInspectorBtn';
+                stitchBtn.className = 'btn btn-info flex-1';
+                stitchBtn.innerHTML = '<i class="fa fa-object-group mr-2"></i>图片拼接';
+                stitchBtn.addEventListener('click', stitchAndRecognizeInspectorText);
+                
+                const addMoreBtn = document.createElement('button');
+                addMoreBtn.id = 'addMoreInspectorBtn';
+                addMoreBtn.className = 'btn btn-primary flex-1';
+                addMoreBtn.innerHTML = '<i class="fa fa-plus mr-2"></i>添加更多图片';
+                addMoreBtn.addEventListener('click', () => {
+                    inspectorScreenshotInput.value = '';
+                    inspectorScreenshotInput.click();
+                });
+                
+                buttonContainer.appendChild(recognizeBtn);
+                buttonContainer.appendChild(stitchBtn);
+                buttonContainer.appendChild(addMoreBtn);
+                inspectorScreenshotPreview.appendChild(buttonContainer);
+                
+                const infoText = document.createElement('div');
+                infoText.className = 'mt-2 text-sm text-gray-500';
+                infoText.innerHTML = '<i class="fa fa-info-circle mr-1"></i>支持多张图片批量识别，建议每张图片不超过10个人名';
+                inspectorScreenshotPreview.appendChild(infoText);
+            }
+        }
+
+        // 识别检查人文字
+        function recognizeInspectorText() {
+            if (inspectorScreenshots.length === 0) {
+                showToast('错误', '请先上传截图', 'error');
+                return;
+            }
+            
+            inspectorOcrResult.classList.remove('hidden');
+            inspectorOcrStatus.className = 'badge badge-yellow';
+            inspectorOcrStatus.textContent = '处理中...';
+            inspectorOcrProgress.classList.remove('hidden');
+            inspectorOcrText.value = '';
+            
+            // 显示拼接进度
+            inspectorOcrProgress.querySelector('.progress-value').style.width = '10%';
+            
+            // 读取所有图片
+            let loadedImages = [];
+            let loadedCount = 0;
+            
+            function loadImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const image = new Image();
+                        image.onload = function() {
+                            resolve(image);
+                        };
+                        image.onerror = reject;
+                        image.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            // 更新进度
+            function updateProgress(percent) {
+                inspectorOcrProgress.querySelector('.progress-value').style.width = `${percent}%`;
+            }
+            
+            // 加载所有图片
+            Promise.all(inspectorScreenshots.map(loadImage))
+                .then(images => {
+                    updateProgress(30);
+                    
+                    // 计算拼接后的画布大小
+                    const maxWidth = Math.max(...images.map(img => img.width));
+                    const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+                    
+                    // 创建拼接画布
+                    const canvas = document.createElement('canvas');
+                    canvas.width = maxWidth;
+                    canvas.height = totalHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 绘制所有图片
+                    let currentY = 0;
+                    images.forEach((image, index) => {
+                        // 图像预处理以提高OCR准确性
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = image.width;
+                        tempCanvas.height = image.height;
+                        
+                        // 绘制原始图像
+                        tempCtx.drawImage(image, 0, 0);
+                        
+                        // 应用对比度增强
+                        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                        const data = imageData.data;
+                        
+                        // 提高对比度
+                        const factor = 1.5; // 对比度因子
+                        const intercept = 128 * (1 - factor);
+                        
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, Math.max(0, data[i] * factor + intercept));     // 红
+                            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * factor + intercept)); // 绿
+                            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * factor + intercept)); // 蓝
+                        }
+                        
+                        tempCtx.putImageData(imageData, 0, 0);
+                        
+                        // 将处理后的图像绘制到拼接画布上
+                        const x = (maxWidth - image.width) / 2; // 居中显示
+                        ctx.drawImage(tempCanvas, x, currentY);
+                        
+                        // 绘制分隔线
+                        ctx.beginPath();
+                        ctx.moveTo(0, currentY + image.height - 1);
+                        ctx.lineTo(maxWidth, currentY + image.height - 1);
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        
+                        currentY += image.height;
+                        
+                        // 更新进度
+                        updateProgress(30 + (index + 1) * 40 / images.length);
+                    });
+                    
+                    updateProgress(80);
+                    
+                    // 执行OCR识别
+                    return Tesseract.recognize(
+                        canvas,
+                        'chi_sim',
+                        {
+                            logger: progress => {
+                                const progressPercent = Math.round(progress.progress * 100);
+                                const overallProgress = 80 + Math.round(progressPercent * 0.2);
+                                updateProgress(overallProgress);
+                            },
+                            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@微信：:;',
+                            preserve_interword_spaces: 1,
+                            tessedit_pageseg_mode: 6, // 假设一个统一的块文本
+                            user_defined_dpi: 300
+                        }
+                    );
+                })
+                .then(result => {
+                    updateProgress(100);
+                    inspectorOcrText.value = result.data.text;
+                    inspectorOcrStatus.className = 'badge badge-green';
+                    inspectorOcrStatus.textContent = '识别完成';
+                    
+                    setTimeout(() => {
+                        inspectorOcrProgress.classList.add('hidden');
+                        showToast('成功', '文字识别完成', 'success');
+                    }, 500);
+                })
+                .catch(error => {
+                    console.error('OCR error:', error);
+                    inspectorOcrStatus.className = 'badge badge-red';
+                    inspectorOcrStatus.textContent = '识别失败';
+                    inspectorOcrProgress.classList.add('hidden');
+                    showToast('错误', '文字识别失败: ' + error.message, 'error');
+                });
+        }
+
+        // 处理检查人文字
+        function processInspectorText() {
+            const text = inspectorOcrText.value;
+            
+            if (!text.trim()) {
+                showToast('错误', '没有可处理的文字', 'error');
+                return;
+            }
+            
+            // 第一步：删除所有空格
+            let processedText = text.replace(/\s+/g, '');
+            
+            // 第二步：替换@微信为：
+            processedText = processedText.replace(/@微信/g, '：');
+            
+            // 显示处理后的原始文本
+            inspectorProcessedText.value = processedText;
+            
+            // 尝试提取姓名和比例
+            const namePattern = /([\u4e00-\u9fa5]+)[：:](\d+)/g;
+            let match;
+            let extractedText = '';
+            let hasMatches = false;
+            
+            while ((match = namePattern.exec(processedText)) !== null) {
+                hasMatches = true;
+                const name = match[1].trim();
+                const ratio = match[2].trim();
+                extractedText += `${name}：${ratio}；`;
+            }
+            
+            if (hasMatches) {
+                inspectorProcessedText.value = extractedText;
+                validateInspectorText();
+                showToast('成功', '文字处理完成', 'success');
+            } else {
+                showToast('提示', '未检测到姓名和比例格式，请手动编辑', 'info');
+            }
+        }
+
+        // 验证检查人文字
+        function validateInspectorText() {
+            const text = inspectorProcessedText.value;
+            
+            if (!text.trim()) {
+                inspectorAllocationResult.classList.add('hidden');
+                return;
+            }
+            
+            // 提取姓名和比例
+            const namePattern = /([\u4e00-\u9fa5]+)[：:]\s*(\d+)/g;
+            let match;
+            let inspectors = [];
+            let totalRatio = 0;
+            
+            while ((match = namePattern.exec(text)) !== null) {
+                const name = match[1].trim();
+                const ratio = parseInt(match[2].trim());
+                
+                // 检查是否是简称，如果是则转换为全名
+                const fullName = nameMap[name] || name;
+                
+                inspectors.push({
+                    name: fullName,
+                    originalRatio: ratio,
+                    adjustedRatio: 0
+                });
+                
+                totalRatio += ratio;
+            }
+            
+            if (inspectors.length > 0) {
+                // 计算调整后的比例
+                inspectors.forEach(inspector => {
+                    inspector.adjustedRatio = Math.round((inspector.originalRatio / totalRatio) * 100);
+                });
+                
+                // 确保总和为100%
+                const adjustedTotal = inspectors.reduce((sum, inspector) => sum + inspector.adjustedRatio, 0);
+                if (adjustedTotal !== 100 && inspectors.length > 0) {
+                    const diff = 100 - adjustedTotal;
+                    inspectors[0].adjustedRatio += diff;
+                }
+                
+                inspectorData = inspectors;
+                displayInspectorAllocation(inspectors, totalRatio);
+                checkConflicts();
+            } else {
+                inspectorAllocationResult.classList.add('hidden');
+                inspectorData = [];
+            }
+        }
+
+        // 显示检查人分配结果
+        function displayInspectorAllocation(inspectors, originalTotal) {
+            inspectorAllocationList.innerHTML = '';
+            
+            inspectors.forEach(inspector => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-medium';
+                nameSpan.textContent = inspector.name;
+                
+                const ratioSpan = document.createElement('span');
+                ratioSpan.className = 'text-sm';
+                ratioSpan.innerHTML = `${inspector.originalRatio}% <span class="text-gray-500">→</span> ${inspector.adjustedRatio}%`;
+                
+                item.appendChild(nameSpan);
+                item.appendChild(ratioSpan);
+                inspectorAllocationList.appendChild(item);
+            });
+            
+            inspectorOriginalTotal.textContent = `${originalTotal}%`;
+            inspectorAdjustedTotal.textContent = '100%';
+            inspectorAllocationResult.classList.remove('hidden');
+        }
+
+        // 图片拼接并识别检查人文字
+        function stitchAndRecognizeInspectorText() {
+            if (inspectorScreenshots.length === 0) {
+                showToast('错误', '请先上传截图', 'error');
+                return;
+            }
+            
+            if (inspectorScreenshots.length === 1) {
+                showToast('提示', '只有一张图片，无需拼接', 'info');
+                recognizeInspectorText();
+                return;
+            }
+            
+            // 显示拼接预览弹窗
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.id = 'stitchPreviewModal';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto';
+            
+            modalContent.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">图片拼接预览</h3>
+                    <button id="closeStitchModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600 mb-2">拼接后的图片预览：</p>
+                    <div id="stitchedImageContainer" class="flex justify-center"></div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button id="cancelStitchBtn" class="btn btn-secondary">取消</button>
+                    <button id="confirmStitchBtn" class="btn btn-primary">确认并识别</button>
+                </div>
+            `;
+            
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+            
+            // 加载并拼接图片
+            let loadedImages = [];
+            let loadedCount = 0;
+            
+            function loadImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const image = new Image();
+                        image.onload = function() {
+                            resolve(image);
+                        };
+                        image.onerror = reject;
+                        image.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            Promise.all(inspectorScreenshots.map(loadImage))
+                .then(images => {
+                    // 计算拼接后的画布大小
+                    const maxWidth = Math.max(...images.map(img => img.width));
+                    const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+                    
+                    // 创建拼接画布
+                    const canvas = document.createElement('canvas');
+                    canvas.width = maxWidth;
+                    canvas.height = totalHeight;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 绘制所有图片
+                    let currentY = 0;
+                    images.forEach((image, index) => {
+                        // 图像预处理以提高OCR准确性
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = image.width;
+                        tempCanvas.height = image.height;
+                        
+                        // 绘制原始图像
+                        tempCtx.drawImage(image, 0, 0);
+                        
+                        // 应用对比度增强
+                        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                        const data = imageData.data;
+                        
+                        // 提高对比度
+                        const factor = 1.5;
+                        const intercept = 128 * (1 - factor);
+                        
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.min(255, Math.max(0, data[i] * factor + intercept));
+                            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * factor + intercept));
+                            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * factor + intercept));
+                        }
+                        
+                        tempCtx.putImageData(imageData, 0, 0);
+                        
+                        // 将处理后的图像绘制到拼接画布上
+                        const x = (maxWidth - image.width) / 2;
+                        ctx.drawImage(tempCanvas, x, currentY);
+                        
+                        // 绘制分隔线
+                        if (index < images.length - 1) {
+                            ctx.beginPath();
+                            ctx.moveTo(0, currentY + image.height - 1);
+                            ctx.lineTo(maxWidth, currentY + image.height - 1);
+                            ctx.strokeStyle = '#000000';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                        
+                        currentY += image.height;
+                    });
+                    
+                    // 显示拼接后的图片
+                    const stitchedImage = document.createElement('img');
+                    stitchedImage.src = canvas.toDataURL();
+                    stitchedImage.className = 'max-w-full h-auto border rounded';
+                    document.getElementById('stitchedImageContainer').appendChild(stitchedImage);
+                    
+                    // 保存拼接后的画布
+                    window.stitchedInspectorCanvas = canvas;
+                })
+                .catch(error => {
+                    console.error('Image stitching error:', error);
+                    showToast('错误', '图片拼接失败', 'error');
+                    document.body.removeChild(modal);
+                });
+            
+            // 绑定事件
+            document.getElementById('closeStitchModal').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('cancelStitchBtn').onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            document.getElementById('confirmStitchBtn').onclick = () => {
+                document.body.removeChild(modal);
+                
+                if (window.stitchedInspectorCanvas) {
+                    // 执行OCR识别
+                    inspectorOcrResult.classList.remove('hidden');
+                    inspectorOcrStatus.className = 'badge badge-yellow';
+                    inspectorOcrStatus.textContent = '处理中...';
+                    inspectorOcrProgress.classList.remove('hidden');
+                    inspectorOcrText.value = '';
+                    
+                    Tesseract.recognize(
+                        window.stitchedInspectorCanvas,
+                        'chi_sim',
+                        {
+                            logger: progress => {
+                                const progressPercent = Math.round(progress.progress * 100);
+                                inspectorOcrProgress.querySelector('.progress-value').style.width = `${progressPercent}%`;
+                            },
+                            tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@微信：:;',
+                            preserve_interword_spaces: 1,
+                            tessedit_pageseg_mode: 6,
+                            user_defined_dpi: 300
+                        }
+                    ).then(result => {
+                        inspectorOcrText.value = result.data.text;
+                        inspectorOcrStatus.className = 'badge badge-green';
+                        inspectorOcrStatus.textContent = '识别完成';
+                        inspectorOcrProgress.classList.add('hidden');
+                        showToast('成功', '文字识别完成', 'success');
+                    }).catch(error => {
+                        console.error('OCR error:', error);
+                        inspectorOcrStatus.className = 'badge badge-red';
+                        inspectorOcrStatus.textContent = '识别失败';
+                        inspectorOcrProgress.classList.add('hidden');
+                        showToast('错误', '文字识别失败: ' + error.message, 'error');
+                    });
+                }
+            };
+        }
+
+        // 清除检查人数据
+        function clearInspectorData() {
+            inspectorScreenshots = [];
+            inspectorScreenshotPreview.classList.add('hidden');
+            inspectorOcrResult.classList.add('hidden');
+            inspectorProcessedText.value = '';
+            inspectorAllocationResult.classList.add('hidden');
+            inspectorData = [];
+            conflictWarning.classList.add('hidden');
+        }
+
+        // 检查人员冲突
+        function checkConflicts() {
+            if (managerData.length === 0 || inspectorData.length === 0) {
+                conflictWarning.classList.add('hidden');
+                return false;
+            }
+            
+            const managerNames = managerData.map(m => m.name);
+            const inspectorNames = inspectorData.map(i => i.name);
+            const conflicts = managerNames.filter(name => inspectorNames.includes(name));
+            
+            if (conflicts.length > 0) {
+                conflictList.innerHTML = '';
+                conflicts.forEach(name => {
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    conflictList.appendChild(li);
+                });
+                // 修改提示信息
+                const warningText = document.querySelector('#conflictWarning .text-sm');
+                if (warningText) {
+                    warningText.innerHTML = '提示：以下人员同时出现在负责人和检查人中。系统将自动确保检查人不会检查自己负责的内容。';
+                }
+                conflictWarning.classList.remove('hidden');
+                return true;
+            } else {
+                conflictWarning.classList.add('hidden');
+                return false;
+            }
+        }
+
+        // 更新格式化交付时间
+        function updateFormattedDeliveryTime() {
+            if (!deliveryDate.value || !deliveryTime.value) {
+                formattedDeliveryTime.textContent = '--月--日 --:--';
+                return;
+            }
+            
+            const date = new Date(deliveryDate.value);
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const time = deliveryTime.value;
+            
+            formattedDeliveryTime.textContent = `${month}月${day}日 ${time}`;
+        }
+
+        // 重置应用程序
+        function resetApplication() {
+            // 重置所有全局变量
+            currentStep = 1;
+            uploadedFile = null;
+            excelData = null;
+            totalPages = 0;
+            taskCount = 0;
+            managerScreenshots = [];
+            inspectorScreenshots = [];
+            managerData = [];
+            inspectorData = [];
+            inspectPercentage = 10;
+            
+            // 重置UI状态
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').textContent = '';
+            document.getElementById('fileSize').textContent = '';
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('dataPreview').innerHTML = '';
+            document.getElementById('managerPreview').innerHTML = '';
+            document.getElementById('inspectorPreview').innerHTML = '';
+            document.getElementById('inspectPercentage').value = 10;
+            document.getElementById('inspectPercentageValue').textContent = '10%';
+            document.getElementById('deliveryDate').value = getNextWorkday();
+            document.getElementById('deliveryTime').value = '17:00';
+            document.getElementById('generationStatus').classList.add('hidden');
+            document.getElementById('downloadSection').classList.add('hidden');
+            document.getElementById('generatedFileName').textContent = '';
+            document.getElementById('downloadLink').href = '#';
+            
+            // 重置步骤显示
+            document.querySelectorAll('section[id^="step"]').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById('step1').classList.remove('hidden');
+            
+            // 重置导航按钮
+            document.getElementById('prevBtn').classList.add('hidden');
+            document.getElementById('nextBtn').classList.remove('hidden');
+            document.getElementById('nextBtn').innerHTML = '下一步<i class="fa fa-arrow-right ml-2"></i>';
+            
+            // 重置进度指示器
+            document.querySelectorAll('.step-indicator').forEach(indicator => {
+                indicator.classList.remove('active', 'completed');
+            });
+            document.querySelector('.step-indicator').classList.add('active');
+            
+            // 显示提示
+            showToast('成功', '应用已重置，可以开始新的任务分配', 'success');
+        }
+
+        // 生成结果
+        function generateResult() {
+            if (!uploadedFile || !excelData || managerData.length === 0 || inspectorData.length === 0) {
+                showToast('错误', '数据不完整，无法生成结果', 'error');
+                return;
+            }
+            
+            generationStatus.classList.remove('hidden');
+            generationStatusText.className = 'badge badge-yellow';
+            generationStatusText.textContent = '处理中...';
+            
+            // 模拟进度
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 5;
+                if (progress > 95) {
+                    clearInterval(progressInterval);
+                }
+                generationProgress.querySelector('.progress-value').style.width = `${progress}%`;
+            }, 100);
+            
+            // 处理数据
+            setTimeout(() => {
+                try {
+                    // 深拷贝数据
+                    const resultData = JSON.parse(JSON.stringify(excelData));
+                    
+                    // 确保必要的列存在
+                    const requiredColumns = ["任务名称", "子任务顺序", "任务ID", "子任务ID", "线上学生作业ID",
+                        "老师作业ID", "题单ID", "未评测页数", "总页数", "总评测数量", "任务链接",
+                        "负责人", "交付日期", "完成情况", "特殊备注", "检查人", "问题", "是否已修改", "截图"];
+                    
+                    requiredColumns.forEach(col => {
+                        if (!resultData[0] || !resultData[0].hasOwnProperty(col)) {
+                            resultData.forEach(row => {
+                                row[col] = "";
+                            });
+                        }
+                    });
+                    
+                    // 分配负责人
+                    allocateManagers(resultData);
+                    
+                    // 分配检查人
+                    allocateInspectors(resultData);
+                    
+                    // 设置交付日期
+                    const date = new Date(deliveryDate.value);
+                    const month = date.getMonth() + 1;
+                    const day = date.getDate();
+                    const time = deliveryTime.value;
+                    const deliveryDateTime = `${month}月${day}日 ${time}`;
+                    
+                    resultData.forEach(row => {
+                        row["交付日期"] = deliveryDateTime;
+                    });
+                    
+                    // 保持分组顺序，确保任务组的连续性
+                    // 不再按原始顺序排序，而是保持allocateManagers函数中构建的分组顺序
+                    
+                    // 清理临时属性
+                    resultData.forEach(row => {
+                        delete row._originalIndex;
+                        delete row["_hasConflict"];
+                    });
+                    
+                    // 创建工作簿
+                    const ws = XLSX.utils.json_to_sheet(resultData);
+                    
+                    // 查找检查人列的索引
+                    const headers = Object.keys(resultData[0]);
+                    const inspectorColIndex = headers.indexOf("检查人");
+                    
+                    // 为冲突的检查人单元格添加红色背景
+                    if (inspectorColIndex !== -1) {
+                        resultData.forEach((row, rowIndex) => {
+                            if (row["_hasConflict"]) {
+                                const cellAddress = XLSX.utils.encode_cell({r: rowIndex + 1, c: inspectorColIndex});
+                                if (!ws[cellAddress]) ws[cellAddress] = {};
+                                ws[cellAddress].s = {
+                                    fill: {
+                                        fgColor: {rgb: "FFFF0000"}
+                                    },
+                                    font: {
+                                        color: {rgb: "FFFFFFFF"}
+                                    }
+                                };
+                            }
+                        });
+                    }
+                    
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "任务分配");
+                    
+                    // 生成文件名
+                    const now = new Date();
+                    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+                    const fileName = `任务分配结果_${timestamp}.xlsx`;
+                    
+                    // 生成下载链接
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    downloadLink.href = url;
+                    downloadLink.download = fileName;
+                    generatedFileName.textContent = fileName;
+                    
+                    // 更新UI
+                    clearInterval(progressInterval);
+                    generationProgress.querySelector('.progress-value').style.width = '100%';
+                    generationStatusText.className = 'badge badge-green';
+                    generationStatusText.textContent = '完成';
+                    
+                    // 自动触发下载
+                    downloadLink.click();
+                    
+                    setTimeout(() => {
+                        generationStatus.classList.add('hidden');
+                        downloadSection.classList.remove('hidden');
+                        showToast('成功', '任务分配结果已生成并自动下载', 'success');
+                    }, 500);
+                    
+                } catch (error) {
+                    console.error('Error generating result:', error);
+                    clearInterval(progressInterval);
+                    generationStatusText.className = 'badge badge-red';
+                    generationStatusText.textContent = '失败';
+                    showToast('错误', '文件生成失败', 'error');
+                }
+            }, 2000);
+        }
+
+        // 分配负责人（保持原始顺序）
+        // 分配负责人（严格按图片识别顺序）
+        // ===================== 【1】分配负责人（严格按OCR顺序 + 分组分配，确保偏差在范围内）=====================
+        function allocateManagers(data) {
+          data.forEach((row, index) => {
+            row._originalIndex = index;
+          });
+
+          const totalPages = data.reduce((sum, row) => sum + (parseFloat(row["总页数"]) || 0), 0);
+          const totalEvaluations = data.reduce((sum, row) => sum + (parseFloat(row["总评测数量"]) || 0), 0);
+          const managerList = managerData.map(m => m.name);
+          const managerCount = managerList.length;
+
+          // 计算总平均值
+          const avgPages = totalPages / managerCount;
+          const avgEvaluations = totalEvaluations / managerCount;
+
+          // 第一步：按总页数分组，确保每组总页数在平均值±2范围内
+          const groups = [];
+          let currentGroup = [];
+          let currentGroupPages = 0;
+          let currentGroupEvaluations = 0;
+
+          data.forEach(row => {
+            const pages = parseFloat(row["总页数"]) || 0;
+            const evaluations = parseFloat(row["总评测数量"]) || 0;
+
+            // 检查添加当前任务后是否在范围内
+            const newPages = currentGroupPages + pages;
+            const pagesDiff = Math.abs(newPages - avgPages);
+
+            // 如果是最后一个组，直接添加
+            if (groups.length === managerCount - 1) {
+              currentGroup.push(row);
+              currentGroupPages += pages;
+              currentGroupEvaluations += evaluations;
+            } else if (pagesDiff <= 2) {
+              // 如果在±2范围内，添加到当前组并开始新组
+              currentGroup.push(row);
+              groups.push({
+                tasks: currentGroup,
+                pages: currentGroupPages + pages,
+                evaluations: currentGroupEvaluations + evaluations
+              });
+              currentGroup = [];
+              currentGroupPages = 0;
+              currentGroupEvaluations = 0;
+            } else {
+              // 否则继续添加到当前组
+              currentGroup.push(row);
+              currentGroupPages += pages;
+              currentGroupEvaluations += evaluations;
+            }
+          });
+
+          // 处理最后一个组
+          if (currentGroup.length > 0) {
+            groups.push({
+              tasks: currentGroup,
+              pages: currentGroupPages,
+              evaluations: currentGroupEvaluations
+            });
+          }
+
+          // 第二步：检查并调整总评测数量，允许总页数偏差放宽到±6
+          // 调整时直接调换整行任务，保证任务组内的任务行是连续的
+          for (let i = 0; i < groups.length - 1; i++) {
+            const currentGroup = groups[i];
+            const nextGroup = groups[i + 1];
+
+            const currentEvalDiff = Math.abs(currentGroup.evaluations - avgEvaluations);
+            const nextEvalDiff = Math.abs(nextGroup.evaluations - avgEvaluations);
+
+            // 如果任一组合评测数量偏差超过±300，尝试调整
+            if (currentEvalDiff > 300 || nextEvalDiff > 300) {
+              // 尝试从任务多的组向任务少的组转移任务
+              const sourceGroup = currentGroup.evaluations > nextGroup.evaluations ? currentGroup : nextGroup;
+              const targetGroup = currentGroup.evaluations > nextGroup.evaluations ? nextGroup : currentGroup;
+
+              // 尝试转移任务，直到评测数量偏差在范围内或无法转移
+              let taskMoved = false;
+              
+              // 从末尾开始尝试转移整行任务
+              while (sourceGroup.tasks.length > 0) {
+                const task = sourceGroup.tasks[sourceGroup.tasks.length - 1];
+                const taskPages = parseFloat(task["总页数"]) || 0;
+                const taskEvaluations = parseFloat(task["总评测数量"]) || 0;
+
+                // 检查转移后总页数是否在±6范围内
+                const newSourcePages = sourceGroup.pages - taskPages;
+                const newTargetPages = targetGroup.pages + taskPages;
+                const sourcePagesDiff = Math.abs(newSourcePages - avgPages);
+                const targetPagesDiff = Math.abs(newTargetPages - avgPages);
+
+                if (sourcePagesDiff <= 6 && targetPagesDiff <= 6) {
+                  // 转移任务（整行调换）
+                  sourceGroup.tasks.pop();
+                  targetGroup.tasks.push(task);
+                  sourceGroup.pages = newSourcePages;
+                  sourceGroup.evaluations -= taskEvaluations;
+                  targetGroup.pages = newTargetPages;
+                  targetGroup.evaluations += taskEvaluations;
+                  taskMoved = true;
+
+                  // 检查是否已满足评测数量偏差要求
+                  const newCurrentEvalDiff = Math.abs(sourceGroup.evaluations - avgEvaluations);
+                  const newNextEvalDiff = Math.abs(targetGroup.evaluations - avgEvaluations);
+                  if (newCurrentEvalDiff <= 300 && newNextEvalDiff <= 300) {
+                    break;
+                  }
+                } else {
+                  // 如果当前任务无法转移，尝试前一个任务
+                  break;
+                }
+              }
+            }
+          }
+
+          // 第三步：按图片识别的文字顺序分配负责人
+          // 然后按OCR识别顺序为每个负责人分配连续的任务组
+          let currentManagerIndex = 0;
+
+          groups.forEach(group => {
+            const manager = managerList[currentManagerIndex];
+            group.tasks.forEach(task => {
+              task["负责人"] = manager;
+            });
+            currentManagerIndex++;
+          });
+
+          // 重新构建data数组，按照分组顺序排列任务，确保任务组的连续性
+          const reorderedData = [];
+          groups.forEach(group => {
+            group.tasks.forEach(task => {
+              reorderedData.push(task);
+            });
+          });
+
+          // 更新原始data数组的顺序
+          data.length = 0;
+          reorderedData.forEach(task => {
+            data.push(task);
+          });
+
+          // 最终验证并调整
+          const managerStats = {};
+          managerList.forEach(m => {
+            managerStats[m] = {
+              pages: 0,
+              evaluations: 0,
+              taskCount: 0
+            };
+          });
+          data.forEach(row => {
+            const pages = parseFloat(row["总页数"]) || 0;
+            const evaluations = parseFloat(row["总评测数量"]) || 0;
+            managerStats[row["负责人"]].pages += pages;
+            managerStats[row["负责人"]].evaluations += evaluations;
+            managerStats[row["负责人"]].taskCount++;
+          });
+
+          console.log("=== 负责人最终分配 ===");
+          managerList.forEach((m, idx) => {
+            const actualPages = managerStats[m].pages;
+            const actualEvaluations = managerStats[m].evaluations;
+            const actualTaskCount = managerStats[m].taskCount;
+            const pagesDiff = actualPages - avgPages;
+            const evaluationsDiff = actualEvaluations - avgEvaluations;
+            console.log(`${m}：任务数 ${actualTaskCount}，页数 ${actualPages} (偏差: ${pagesDiff.toFixed(1)}页)，评测数量 ${actualEvaluations} (偏差: ${evaluationsDiff.toFixed(1)}个)`);
+          });
+        }
+
+        // ===================== 【2】分配检查人（严格按OCR顺序 + 平均分配 + 每个检查人至少1个任务）=====================
+        function allocateInspectors(data) {
+          // 初始化
+          data.forEach(row => {
+            row["检查人"] = "";
+            row["_hasConflict"] = false;
+          });
+
+          // 基础数据
+          const totalPages = data.reduce((s, r) => s + (parseFloat(r["总页数"]) || 0), 0);
+          const totalEvaluations = data.reduce((s, r) => s + (parseFloat(r["总评测数量"]) || 0), 0);
+          const inspectPages = Math.round(totalPages * inspectPercentage / 100);
+          const inspectEvaluations = Math.round(totalEvaluations * inspectPercentage / 100);
+          const allManagers = [...new Set(data.map(r => r["负责人"]))];
+          const managerCount = allManagers.length;
+          if (managerCount === 0) return;
+
+          // 按负责人分组任务池
+          const taskPool = {};
+          allManagers.forEach(m => {
+            const tasks = [...data.filter(r => r["负责人"] === m)];
+            shuffleArray(tasks); // 随机打乱
+            taskPool[m] = tasks;
+          });
+
+          // 第一步：从每个负责人的任务组中随机抽取一条任务
+          const selected = [];
+          let currentSumPages = 0;
+          let currentSumEvaluations = 0;
+
+          // 确保每个负责人至少有一个被抽中的任务
+          allManagers.forEach(m => {
+            const pool = taskPool[m];
+            if (pool && pool.length > 0) {
+              const task = pool.shift();
+              selected.push(task);
+              currentSumPages += parseFloat(task["总页数"]) || 0;
+              currentSumEvaluations += parseFloat(task["总评测数量"]) || 0;
+            }
+          });
+
+          // 第二步：检查是否达到抽取标准
+          const pagesDiff = Math.abs(currentSumPages - inspectPages);
+          const evaluationsDiff = Math.abs(currentSumEvaluations - inspectEvaluations);
+
+          // 如果未达到抽取标准，继续随机抽取
+          if (pagesDiff > 8 || evaluationsDiff > 500) {
+            // 收集所有剩余任务
+            const remainingTasks = [];
+            allManagers.forEach(m => {
+              if (taskPool[m] && taskPool[m].length > 0) {
+                remainingTasks.push(...taskPool[m]);
+              }
+            });
+            
+            // 随机打乱剩余任务
+            shuffleArray(remainingTasks);
+
+            // 继续抽取直到达到要求
+            for (const task of remainingTasks) {
+              const p = parseFloat(task["总页数"]) || 0;
+              const e = parseFloat(task["总评测数量"]) || 0;
+              
+              // 检查添加后是否在允许范围内
+              const newPages = currentSumPages + p;
+              const newEvaluations = currentSumEvaluations + e;
+              const newPagesDiff = Math.abs(newPages - inspectPages);
+              const newEvaluationsDiff = Math.abs(newEvaluations - inspectEvaluations);
+              
+              if (newPagesDiff <= 8 && newEvaluationsDiff <= 500) {
+                selected.push(task);
+                currentSumPages = newPages;
+                currentSumEvaluations = newEvaluations;
+              }
+              
+              // 检查是否已达到要求
+              if (newPagesDiff <= 8 && newEvaluationsDiff <= 500) {
+                break;
+              }
+            }
+          }
+
+          // 按原始顺序排序
+          selected.sort((a, b) => a._originalIndex - b._originalIndex);
+
+          // 平均分配：按总页数和总评测数量的平均值进行分配
+          const inspectors = JSON.parse(JSON.stringify(inspectorData));
+          const inspectorCount = inspectors.length;
+          if (inspectorCount === 0) return;
+
+          // 确保至少有足够的任务分配给每个检查人
+          if (selected.length < inspectorCount) {
+            // 如果任务数量不足，需要从剩余任务中补充
+            const remainingTasks = [];
+            allManagers.forEach(m => {
+              if (taskPool[m] && taskPool[m].length > 0) {
+                remainingTasks.push(...taskPool[m]);
+              }
+            });
+            
+            shuffleArray(remainingTasks);
+            
+            let additionalTasksNeeded = inspectorCount - selected.length;
+            for (let i = 0; i < additionalTasksNeeded && i < remainingTasks.length; i++) {
+              selected.push(remainingTasks[i]);
+            }
+          }
+
+          // 计算每个人的平均值
+          const avgPages = currentSumPages / inspectorCount;
+          const avgEvaluations = currentSumEvaluations / inspectorCount;
+
+          // 按OCR顺序分配，强制跳过自检
+          let insIdx = 0;
+          let currentAssignedPages = 0;
+          let currentAssignedEvaluations = 0;
+          const inspectorTaskCount = {};
+          
+          // 初始化每个检查人的任务计数
+          inspectors.forEach(ins => {
+            inspectorTaskCount[ins.name] = 0;
+          });
+
+          selected.forEach(task => {
+            const pages = parseFloat(task["总页数"]) || 0;
+            const evaluations = parseFloat(task["总评测数量"]) || 0;
+            const taskManager = task["负责人"];
+
+            // 找到【不是自己】的检查人
+            let cur = inspectors[insIdx];
+            let loopCount = 0;
+            while (cur.name === taskManager && loopCount < inspectors.length) {
+              insIdx = (insIdx + 1) % inspectors.length;
+              cur = inspectors[insIdx];
+              loopCount++;
+            }
+
+            // 分配检查人
+            task["检查人"] = cur.name;
+            inspectorTaskCount[cur.name]++;
+            currentAssignedPages += pages;
+            currentAssignedEvaluations += evaluations;
+
+            // 满额自动切换
+            if (insIdx < inspectorCount - 1) {
+              // 检查是否达到平均值偏差范围内
+              const pagesDiff = Math.abs(currentAssignedPages - avgPages);
+              const evaluationsDiff = Math.abs(currentAssignedEvaluations - avgEvaluations);
+              if ((pagesDiff <= 8 || evaluationsDiff <= 500) && (currentAssignedPages >= avgPages || currentAssignedEvaluations >= avgEvaluations)) {
+                insIdx++;
+                currentAssignedPages = 0;
+                currentAssignedEvaluations = 0;
+              }
+            }
+
+            // 自检标记
+            if (task["负责人"] === task["检查人"]) {
+              task["_hasConflict"] = true;
+            }
+          });
+
+          // 校验并调整：确保每个检查人至少有1个任务
+          const inspectorsWithNoTasks = inspectors.filter(ins => inspectorTaskCount[ins.name] === 0);
+          if (inspectorsWithNoTasks.length > 0) {
+            console.log("=== 检查人任务分配调整 ===");
+            console.log(`需要调整的检查人：${inspectorsWithNoTasks.map(ins => ins.name).join(', ')}`);
+            
+            // 找到任务数大于1的检查人
+            const inspectorsWithExtraTasks = inspectors.filter(ins => inspectorTaskCount[ins.name] > 1);
+            
+            if (inspectorsWithExtraTasks.length > 0) {
+              // 从任务数多的检查人那里调整任务给没有任务的检查人
+              inspectorsWithNoTasks.forEach(ins => {
+                if (inspectorsWithExtraTasks.length > 0) {
+                  // 找到任务数最多的检查人
+                  const inspectorWithMostTasks = inspectorsWithExtraTasks.reduce((max, current) => {
+                    return inspectorTaskCount[current.name] > inspectorTaskCount[max.name] ? current : max;
+                  });
+                  
+                  // 找到该检查人的一个任务
+                  const taskToMove = selected.find(t => t["检查人"] === inspectorWithMostTasks.name);
+                  if (taskToMove) {
+                    // 确保新的检查人不是任务的负责人
+                    if (ins.name !== taskToMove["负责人"]) {
+                      taskToMove["检查人"] = ins.name;
+                      inspectorTaskCount[ins.name]++;
+                      inspectorTaskCount[inspectorWithMostTasks.name]--;
+                      
+                      // 更新检查人列表
+                      if (inspectorTaskCount[inspectorWithMostTasks.name] <= 1) {
+                        const index = inspectorsWithExtraTasks.indexOf(inspectorWithMostTasks);
+                        if (index > -1) {
+                          inspectorsWithExtraTasks.splice(index, 1);
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+            }
+          }
+
+          // 写回原数据
+          selected.forEach(t => {
+            const orig = data.find(r => r._originalIndex === t._originalIndex);
+            if (orig) {
+              orig["检查人"] = t["检查人"];
+              orig["_hasConflict"] = t["_hasConflict"];
+            }
+          });
+
+          // 打印分配结果
+          console.log("=== 检查人最终分配 ===");
+          const inspectorStats = {};
+          inspectors.forEach(i => {
+            inspectorStats[i.name] = {
+              pages: 0,
+              evaluations: 0,
+              taskCount: 0
+            };
+          });
+          selected.forEach(task => {
+            const pages = parseFloat(task["总页数"]) || 0;
+            const evaluations = parseFloat(task["总评测数量"]) || 0;
+            inspectorStats[task["检查人"]].pages += pages;
+            inspectorStats[task["检查人"]].evaluations += evaluations;
+            inspectorStats[task["检查人"]].taskCount++;
+          });
+          inspectors.forEach(i => {
+            const actualPages = inspectorStats[i.name].pages;
+            const actualEvaluations = inspectorStats[i.name].evaluations;
+            const actualTaskCount = inspectorStats[i.name].taskCount;
+            const pagesDiff = actualPages - avgPages;
+            const evaluationsDiff = actualEvaluations - avgEvaluations;
+            console.log(`${i.name}：任务数 ${actualTaskCount}，页数 ${actualPages} (偏差: ${pagesDiff.toFixed(1)}页)，评测数量 ${actualEvaluations} (偏差: ${evaluationsDiff.toFixed(1)}个)`);
+          });
+        }
+        // 打乱数组
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+    </script>
+
+</body></html>
