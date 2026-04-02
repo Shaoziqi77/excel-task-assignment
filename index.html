@@ -842,7 +842,9 @@
 
             // 结果生成
             generateResultBtn.addEventListener('click', generateResult);
-            resetBtn.addEventListener('click', resetApplication);
+            if (resetBtn) {
+                resetBtn.addEventListener('click', resetApplication);
+            }
         }
 
         // 更新进度条
@@ -1247,7 +1249,7 @@
 
         // 处理负责人截图
         function handleManagerScreenshots(files) {
-            managerScreenshots = [];
+            let uploadedCount = 0;
             
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -1259,11 +1261,12 @@
                 }
                 
                 managerScreenshots.push(file);
+                uploadedCount++;
             }
             
-            if (managerScreenshots.length > 0) {
+            if (uploadedCount > 0) {
                 showManagerScreenshotPreview();
-                showToast('成功', `已上传 ${managerScreenshots.length} 张截图`, 'success');
+                showToast('成功', `已上传 ${uploadedCount} 张截图，共 ${managerScreenshots.length} 张`, 'success');
             }
         }
 
@@ -1835,7 +1838,7 @@
 
         // 处理检查人截图
         function handleInspectorScreenshots(files) {
-            inspectorScreenshots = [];
+            let uploadedCount = 0;
             
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -1847,11 +1850,12 @@
                 }
                 
                 inspectorScreenshots.push(file);
+                uploadedCount++;
             }
             
-            if (inspectorScreenshots.length > 0) {
+            if (uploadedCount > 0) {
                 showInspectorScreenshotPreview();
-                showToast('成功', `已上传 ${inspectorScreenshots.length} 张截图`, 'success');
+                showToast('成功', `已上传 ${uploadedCount} 张截图，共 ${inspectorScreenshots.length} 张`, 'success');
             }
         }
 
@@ -2840,19 +2844,30 @@
             }
           });
 
-          // 第二步：检查是否达到抽取标准
+          // 第二步：强制随机从所有任务中抽取6条检查任务
+          // 收集所有任务（包括已抽取和未抽取的）
+          const allTasks = [...data];
+          // 过滤掉已抽取的任务
+          const availableTasks = allTasks.filter(task => !selected.some(s => s._originalIndex === task._originalIndex));
+          // 随机打乱
+          shuffleArray(availableTasks);
+          // 抽取最多6条任务
+          const additionalTasks = availableTasks.slice(0, 6);
+          // 添加到已选择的任务中
+          additionalTasks.forEach(task => {
+            selected.push(task);
+            currentSumPages += parseFloat(task["总页数"]) || 0;
+            currentSumEvaluations += parseFloat(task["总评测数量"]) || 0;
+          });
+
+          // 第三步：检查是否达到抽取标准
           const pagesDiff = Math.abs(currentSumPages - inspectPages);
           const evaluationsDiff = Math.abs(currentSumEvaluations - inspectEvaluations);
 
           // 如果未达到抽取标准，继续随机抽取
           if (pagesDiff > 8 || evaluationsDiff > 500) {
-            // 收集所有剩余任务
-            const remainingTasks = [];
-            allManagers.forEach(m => {
-              if (taskPool[m] && taskPool[m].length > 0) {
-                remainingTasks.push(...taskPool[m]);
-              }
-            });
+            // 收集所有剩余任务（排除已抽取的）
+            const remainingTasks = allTasks.filter(task => !selected.some(s => s._originalIndex === task._originalIndex));
             
             // 随机打乱剩余任务
             shuffleArray(remainingTasks);
@@ -2907,14 +2922,12 @@
             }
           }
 
-          // 计算每个人的平均值
+          // 计算每个人的平均值（仅基于总页数）
           const avgPages = currentSumPages / inspectorCount;
-          const avgEvaluations = currentSumEvaluations / inspectorCount;
 
           // 按OCR顺序分配，强制跳过自检
           let insIdx = 0;
           let currentAssignedPages = 0;
-          let currentAssignedEvaluations = 0;
           const inspectorTaskCount = {};
           
           // 初始化每个检查人的任务计数
@@ -2924,7 +2937,6 @@
 
           selected.forEach(task => {
             const pages = parseFloat(task["总页数"]) || 0;
-            const evaluations = parseFloat(task["总评测数量"]) || 0;
             const taskManager = task["负责人"];
 
             // 找到【不是自己】的检查人
@@ -2940,17 +2952,14 @@
             task["检查人"] = cur.name;
             inspectorTaskCount[cur.name]++;
             currentAssignedPages += pages;
-            currentAssignedEvaluations += evaluations;
 
             // 满额自动切换
             if (insIdx < inspectorCount - 1) {
-              // 检查是否达到平均值偏差范围内
+              // 检查是否达到平均值偏差范围内（仅基于总页数，偏差±3页）
               const pagesDiff = Math.abs(currentAssignedPages - avgPages);
-              const evaluationsDiff = Math.abs(currentAssignedEvaluations - avgEvaluations);
-              if ((pagesDiff <= 8 || evaluationsDiff <= 500) && (currentAssignedPages >= avgPages || currentAssignedEvaluations >= avgEvaluations)) {
+              if (pagesDiff <= 3 && currentAssignedPages >= avgPages) {
                 insIdx++;
                 currentAssignedPages = 0;
-                currentAssignedEvaluations = 0;
               }
             }
 
@@ -3016,24 +3025,19 @@
           inspectors.forEach(i => {
             inspectorStats[i.name] = {
               pages: 0,
-              evaluations: 0,
               taskCount: 0
             };
           });
           selected.forEach(task => {
             const pages = parseFloat(task["总页数"]) || 0;
-            const evaluations = parseFloat(task["总评测数量"]) || 0;
             inspectorStats[task["检查人"]].pages += pages;
-            inspectorStats[task["检查人"]].evaluations += evaluations;
             inspectorStats[task["检查人"]].taskCount++;
           });
           inspectors.forEach(i => {
             const actualPages = inspectorStats[i.name].pages;
-            const actualEvaluations = inspectorStats[i.name].evaluations;
             const actualTaskCount = inspectorStats[i.name].taskCount;
             const pagesDiff = actualPages - avgPages;
-            const evaluationsDiff = actualEvaluations - avgEvaluations;
-            console.log(`${i.name}：任务数 ${actualTaskCount}，页数 ${actualPages} (偏差: ${pagesDiff.toFixed(1)}页)，评测数量 ${actualEvaluations} (偏差: ${evaluationsDiff.toFixed(1)}个)`);
+            console.log(`${i.name}：任务数 ${actualTaskCount}，页数 ${actualPages} (偏差: ${pagesDiff.toFixed(1)}页)`);
           });
         }
         // 打乱数组
