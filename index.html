@@ -2667,6 +2667,17 @@
                         pivotData.push(row);
                     }
                     
+                    // 计算检查人数据总和
+                    let inspectorTotalPages = 0;
+                    let inspectorTotalEvaluations = 0;
+                    Object.values(inspectorData).forEach(data => {
+                        inspectorTotalPages += data.pages;
+                        inspectorTotalEvaluations += data.evaluations;
+                    });
+                    
+                    // 添加检查人数据总和行
+                    pivotData.push(['', '', '', '', '总和', inspectorTotalPages, inspectorTotalEvaluations]);
+                    
                     const pivotSheet = XLSX.utils.aoa_to_sheet(pivotData);
                     
                     XLSX.utils.book_append_sheet(wb, pivotSheet, "数据透视");
