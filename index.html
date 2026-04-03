@@ -477,7 +477,7 @@
                 
                 <div id="downloadSection" class="mt-6 hidden">
                     <div class="p-4 bg-blue-50 rounded-lg">
-                        <div class="flex items-center">
+                        <div class="flex items-center mb-4">
                             <i class="fa fa-file-excel-o text-3xl text-blue-500 mr-4"></i>
                             <div>
                                 <h3 class="font-medium text-gray-800">文件已生成</h3>
@@ -486,6 +486,14 @@
                             <a id="downloadLink" href="#" class="ml-auto btn btn-primary">
                                 <i class="fa fa-download mr-2"></i>下载
                             </a>
+                        </div>
+                        <div class="flex gap-2 mt-4">
+                            <button id="reallocateBtn" class="btn btn-secondary flex-1">
+                                <i class="fa fa-refresh mr-2"></i>重新分配
+                            </button>
+                            <button id="backToHomeBtn" class="btn btn-primary flex-1">
+                                <i class="fa fa-home mr-2"></i>返回首页
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -844,6 +852,20 @@
             generateResultBtn.addEventListener('click', generateResult);
             if (resetBtn) {
                 resetBtn.addEventListener('click', resetApplication);
+            }
+            
+            // 重新分配和返回首页按钮
+            const reallocateBtn = document.getElementById('reallocateBtn');
+            const backToHomeBtn = document.getElementById('backToHomeBtn');
+            
+            if (reallocateBtn) {
+                reallocateBtn.addEventListener('click', generateResult);
+            }
+            
+            if (backToHomeBtn) {
+                backToHomeBtn.addEventListener('click', function() {
+                    location.reload();
+                });
             }
         }
 
@@ -2592,6 +2614,63 @@
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, "任务分配");
                     
+                    // 创建数据透视表
+                    const pivotData = [
+                        ['数据透视表1', '', '', '', '数据透视表2', '', ''],
+                        ['负责人', '求和项：总页数', '求和项：总评测数量', '', '检查人', '求和项：总页数', '求和项：总评测数量']
+                    ];
+                    
+                    // 计算负责人数据
+                    const managerData = {};
+                    resultData.forEach(row => {
+                        const manager = row["负责人"];
+                        if (!managerData[manager]) {
+                            managerData[manager] = { pages: 0, evaluations: 0 };
+                        }
+                        managerData[manager].pages += parseFloat(row["总页数"]) || 0;
+                        managerData[manager].evaluations += parseFloat(row["总评测数量"]) || 0;
+                    });
+                    
+                    // 计算检查人数据
+                    const inspectorData = {};
+                    resultData.forEach(row => {
+                        const inspector = row["检查人"];
+                        if (inspector) {
+                            if (!inspectorData[inspector]) {
+                                inspectorData[inspector] = { pages: 0, evaluations: 0 };
+                            }
+                            inspectorData[inspector].pages += parseFloat(row["总页数"]) || 0;
+                            inspectorData[inspector].evaluations += parseFloat(row["总评测数量"]) || 0;
+                        }
+                    });
+                    
+                    // 填充负责人数据
+                    const managerRows = Object.entries(managerData).map(([name, data]) => [name, data.pages, data.evaluations, '', '', '', '']);
+                    // 填充检查人数据
+                    const inspectorRows = Object.entries(inspectorData).map(([name, data]) => ['', '', '', '', name, data.pages, data.evaluations]);
+                    
+                    // 合并所有数据
+                    const maxRows = Math.max(managerRows.length, inspectorRows.length);
+                    for (let i = 0; i < maxRows; i++) {
+                        const row = [];
+                        if (i < managerRows.length) {
+                            row.push(...managerRows[i].slice(0, 3));
+                        } else {
+                            row.push('', '', '');
+                        }
+                        row.push('');
+                        if (i < inspectorRows.length) {
+                            row.push(...inspectorRows[i].slice(4));
+                        } else {
+                            row.push('', '', '');
+                        }
+                        pivotData.push(row);
+                    }
+                    
+                    const pivotSheet = XLSX.utils.aoa_to_sheet(pivotData);
+                    
+                    XLSX.utils.book_append_sheet(wb, pivotSheet, "数据透视");
+                    
                     // 生成文件名
                     const now = new Date();
                     const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
@@ -2635,6 +2714,9 @@
         // 分配负责人（严格按图片识别顺序）
         // ===================== 【1】分配负责人（严格按OCR顺序 + 分组分配，确保偏差在范围内）=====================
         function allocateManagers(data) {
+          // 随机打乱任务顺序，实现真正的重新分配
+          shuffleArray(data);
+          
           data.forEach((row, index) => {
             row._originalIndex = index;
           });
@@ -2922,7 +3004,7 @@
             }
           }
 
-          // 计算每个人的平均值（仅基于总页数）
+          // 计算每个人的平均值
           const avgPages = currentSumPages / inspectorCount;
 
           // 按OCR顺序分配，强制跳过自检
@@ -2955,7 +3037,7 @@
 
             // 满额自动切换
             if (insIdx < inspectorCount - 1) {
-              // 检查是否达到平均值偏差范围内（仅基于总页数，偏差±3页）
+              // 检查是否达到平均值偏差范围内（仅按总页数）
               const pagesDiff = Math.abs(currentAssignedPages - avgPages);
               if (pagesDiff <= 3 && currentAssignedPages >= avgPages) {
                 insIdx++;
@@ -2975,15 +3057,15 @@
             console.log("=== 检查人任务分配调整 ===");
             console.log(`需要调整的检查人：${inspectorsWithNoTasks.map(ins => ins.name).join(', ')}`);
             
-            // 找到任务数大于1的检查人
-            const inspectorsWithExtraTasks = inspectors.filter(ins => inspectorTaskCount[ins.name] > 1);
+            // 找到任务数大于0的检查人（即使只有1个任务）
+            const inspectorsWithTasks = inspectors.filter(ins => inspectorTaskCount[ins.name] > 0);
             
-            if (inspectorsWithExtraTasks.length > 0) {
-              // 从任务数多的检查人那里调整任务给没有任务的检查人
+            if (inspectorsWithTasks.length > 0) {
+              // 从有任务的检查人那里调整任务给没有任务的检查人
               inspectorsWithNoTasks.forEach(ins => {
-                if (inspectorsWithExtraTasks.length > 0) {
+                if (inspectorsWithTasks.length > 0) {
                   // 找到任务数最多的检查人
-                  const inspectorWithMostTasks = inspectorsWithExtraTasks.reduce((max, current) => {
+                  const inspectorWithMostTasks = inspectorsWithTasks.reduce((max, current) => {
                     return inspectorTaskCount[current.name] > inspectorTaskCount[max.name] ? current : max;
                   });
                   
@@ -2997,16 +3079,49 @@
                       inspectorTaskCount[inspectorWithMostTasks.name]--;
                       
                       // 更新检查人列表
-                      if (inspectorTaskCount[inspectorWithMostTasks.name] <= 1) {
-                        const index = inspectorsWithExtraTasks.indexOf(inspectorWithMostTasks);
+                      if (inspectorTaskCount[inspectorWithMostTasks.name] === 0) {
+                        const index = inspectorsWithTasks.indexOf(inspectorWithMostTasks);
                         if (index > -1) {
-                          inspectorsWithExtraTasks.splice(index, 1);
+                          inspectorsWithTasks.splice(index, 1);
                         }
                       }
                     }
                   }
                 }
               });
+            }
+            
+            // 如果仍然有检查人没有任务，从剩余任务中补充
+            const stillNoTasks = inspectors.filter(ins => inspectorTaskCount[ins.name] === 0);
+            if (stillNoTasks.length > 0) {
+              console.log(`仍然没有任务的检查人：${stillNoTasks.map(ins => ins.name).join(', ')}`);
+              
+              // 收集所有任务（包括已抽取和未抽取的）
+              const allTasks = [...data];
+              // 过滤掉已抽取的任务
+              const availableTasks = allTasks.filter(task => !selected.some(s => s._originalIndex === task._originalIndex));
+              
+              if (availableTasks.length > 0) {
+                // 随机打乱
+                shuffleArray(availableTasks);
+                
+                stillNoTasks.forEach(ins => {
+                  // 找到一个任务给这个检查人
+                  const taskToAdd = availableTasks.find(task => task["负责人"] !== ins.name);
+                  if (taskToAdd) {
+                    // 添加到已选择的任务中
+                    selected.push(taskToAdd);
+                    taskToAdd["检查人"] = ins.name;
+                    inspectorTaskCount[ins.name]++;
+                    
+                    // 从可用任务中移除
+                    const index = availableTasks.indexOf(taskToAdd);
+                    if (index > -1) {
+                      availableTasks.splice(index, 1);
+                    }
+                  }
+                });
+              }
             }
           }
 
@@ -3047,9 +3162,6 @@
                 [array[i], array[j]] = [array[j], array[i]];
             }
         }
-        
-        // 版本信息
-        const version = "1.0.3";
     </script>
 
 </body></html>
