@@ -137,26 +137,38 @@
             .spinner {
                 @apply w-9 h-9 border-4 border-line-gray border-t-primary rounded-full animate-spin;
             }
+            .header {
+                background: #1a56db;
+                color: white;
+                padding: 18px 32px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .header h1 {
+                font-size: 20px;
+                font-weight: 600;
+            }
+            .header span {
+                font-size: 13px;
+                opacity: 0.8;
+            }
         }
     </style>
 </head>
 <body class="bg-bg-light min-h-screen">
     <!-- Header -->
-    <header class="bg-primary text-white py-5 px-8">
-        <div class="container mx-auto">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <div>
-                    <h1 class="text-2xl font-semibold">周期评测任务分配系统</h1>
-                    <p class="text-sm opacity-80 mt-1">简化工作分配流程</p>
-                </div>
-                <div class="mt-4 md:mt-0">
-                    <button id="helpBtn" class="btn bg-white text-primary hover:bg-gray-100">
-                        <i class="fa fa-question-circle mr-2"></i>使用帮助
-                    </button>
-                </div>
-            </div>
+    <div class="header">
+        <div>
+            <h1>周期评测任务分配系统</h1>
+            <span>简化工作分配流程</span>
         </div>
-    </header>
+        <div>
+            <button id="helpBtn" class="btn bg-white text-primary hover:bg-gray-100">
+                <i class="fa fa-question-circle mr-2"></i>使用帮助
+            </button>
+        </div>
+    </div>
 
     <div class="container mx-auto px-4 py-8">
 
