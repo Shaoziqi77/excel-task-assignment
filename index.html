@@ -216,6 +216,32 @@
                         </button>
                     </div>
                 </div>
+                <div id="targetPagesSection" class="mt-4 hidden">
+                    <div class="info-box">
+                        <h3 class="font-medium text-gray-800 mb-3">设置目标页数范围</h3>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="p-4 bg-blue-50 rounded-lg">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">最小目标页数</label>
+                                    <input type="number" id="minPagesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="450" min="0">
+                                </div>
+                                <div class="p-4 bg-blue-50 rounded-lg">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">最大目标页数</label>
+                                    <input type="number" id="maxPagesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="500" min="0">
+                                </div>
+                            </div>
+                            <div class="p-4 bg-blue-50 rounded-lg">
+                                <p id="currentPagesInfo" class="text-sm text-gray-600">当前总页数: 0</p>
+                                <p class="text-sm text-gray-600">系统将按子任务顺序从高到低删除，直到总页数在设定范围内</p>
+                            </div>
+                            <div class="flex justify-end">
+                                <button id="processFileBtn" class="btn btn-primary">
+                                    <i class="fa fa-cog mr-2"></i>处理文件
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="totalPagesSection" class="mt-4 hidden">
                     <div class="info-box">
                         <h3 class="font-medium text-gray-800 mb-3">文件分析结果</h3>
@@ -1031,14 +1057,14 @@
         }
 
         // 处理文件上传
-        function handleFileUpload(e) {
+        async function handleFileUpload(e) {
             if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
+                await handleFile(e.target.files[0]);
             }
         }
 
         // 处理文件
-        function handleFile(file) {
+        async function handleFile(file) {
             const fileExtension = file.name.split('.').pop().toLowerCase();
             if (!['xlsx', 'xls', 'csv'].includes(fileExtension)) {
                 showToast('错误', '请上传Excel文件（.xlsx, .xls, .csv）', 'error');
@@ -1053,7 +1079,7 @@
             // 显示处理进度
             const processingToast = document.createElement('div');
             processingToast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center';
-            processingToast.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>正在处理文件，请稍候...';
+            processingToast.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>正在分析文件，请稍候...';
             document.body.appendChild(processingToast);
 
             const reader = new FileReader();
@@ -1097,89 +1123,32 @@
                         });
                     }
 
-                    // 步骤2：从高到低删除记录直到总页数在500-550之间
-                    const targetMinPages = 500;
-                    const targetMaxPages = 550;
+                    // 计算当前总页数
                     let currentPages = rawData.reduce((sum, row) => sum + (parseFloat(row[totalPagesColumn]) || 0), 0);
                     
-                    if (subTaskOrderColumn && currentPages > targetMaxPages) {
-                        // 获取所有唯一的子任务顺序并排序（从高到低）
-                        const allOrders = [...new Set(rawData.map(row => parseInt(row[subTaskOrderColumn]) || 0))];
-                        allOrders.sort((a, b) => b - a);
-
-                        for (const order of allOrders) {
-                            if (currentPages <= targetMaxPages) break;
-                            
-                            const dataWithoutCurrentOrder = rawData.filter(row => {
-                                const rowOrder = parseInt(row[subTaskOrderColumn]) || 0;
-                                return rowOrder !== order;
-                            });
-                            
-                            const newPages = dataWithoutCurrentOrder.reduce((sum, row) => sum + (parseFloat(row[totalPagesColumn]) || 0), 0);
-                            
-                            // 检查删除后是否在目标范围内，或者是否会低于最小页数
-                            if (newPages >= targetMinPages || order === Math.min(...allOrders)) {
-                                rawData = dataWithoutCurrentOrder;
-                                currentPages = newPages;
-                            }
-                        }
-                    }
-
-                    // 步骤3：随机打乱剩余记录
-                    shuffleArray(rawData);
-
-                    // 保存处理后的数据
-                    excelData = rawData;
-                    taskCount = excelData.length;
-                    totalPages = currentPages;
-
-                    // 计算统计信息
-                    const deletedCount = originalCount - taskCount;
-                    const pagesReduced = originalPages - totalPages;
-
-                    // 更新UI
-                    totalPagesElement.textContent = totalPages;
-                    taskCountElement.textContent = taskCount;
-                    totalPagesSection.classList.remove('hidden');
-
-                    // 显示处理结果
+                    // 保存数据到全局变量
+                    window.rawData = rawData;
+                    window.totalPagesColumn = totalPagesColumn;
+                    window.subTaskOrderColumn = subTaskOrderColumn;
+                    window.originalCount = originalCount;
+                    window.originalPages = originalPages;
+                    window.currentPages = currentPages;
+                    
+                    // 更新当前总页数信息
+                    document.getElementById('currentPagesInfo').textContent = `当前总页数: ${currentPages}`;
+                    
+                    // 显示目标页数范围输入框
+                    document.getElementById('targetPagesSection').classList.remove('hidden');
+                    
+                    // 隐藏处理进度提示
                     document.body.removeChild(processingToast);
                     
-                    // 创建处理结果预览区域
-                    const processingResult = document.createElement('div');
-                    processingResult.className = 'mt-4 p-4 bg-green-50 rounded-lg border border-green-200';
-                    processingResult.innerHTML = `
-                        <h4 class="text-lg font-semibold text-green-800 mb-2">文件处理完成</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-sm text-gray-600">原始记录数: ${originalCount}</p>
-                                <p class="text-sm text-gray-600">原始总页数: ${originalPages}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">保留记录数: ${taskCount}</p>
-                                <p class="text-sm text-gray-600">处理后总页数: <span class="font-bold text-green-700">${totalPages}</span></p>
-                            </div>
-                        </div>
-                        <div class="mt-2">
-                            <p class="text-sm text-gray-600">删除记录数: ${deletedCount}</p>
-                            <p class="text-sm text-gray-600">减少页数: ${pagesReduced}</p>
-                        </div>
-                    `;
+                    showToast('成功', '文件分析完成，请设置目标页数范围并点击处理文件按钮', 'success');
                     
-                    // 插入到总页数信息下方
-                    totalPagesSection.appendChild(processingResult);
-
-                    // 生成并显示Excel预览
-                    generateExcelPreview(excelData);
-
-                    // 生成并显示工作安排提示
-                    generateWorkScheduleInfo(totalPages);
-
-                    showToast('成功', '文件处理完成', 'success');
                 } catch (error) {
                     console.error('Error processing file:', error);
                     document.body.removeChild(processingToast);
-                    showToast('错误', '文件处理失败: ' + error.message, 'error');
+                    showToast('错误', '文件分析失败: ' + error.message, 'error');
                     removeFile();
                 }
             };
@@ -1189,6 +1158,97 @@
             };
             reader.readAsArrayBuffer(file);
         }
+
+        // 处理文件按钮点击事件
+        document.getElementById('processFileBtn').addEventListener('click', function() {
+            // 显示处理进度
+            const processingToast = document.createElement('div');
+            processingToast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center';
+            processingToast.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>正在处理文件，请稍候...';
+            document.body.appendChild(processingToast);
+            
+            try {
+                // 获取用户输入的目标页数范围
+                const targetMinPages = parseInt(document.getElementById('minPagesInput').value) || 500;
+                const targetMaxPages = parseInt(document.getElementById('maxPagesInput').value) || 550;
+                
+                // 获取保存的全局变量
+                let rawData = window.rawData;
+                const totalPagesColumn = window.totalPagesColumn;
+                const subTaskOrderColumn = window.subTaskOrderColumn;
+                const originalCount = window.originalCount;
+                const originalPages = window.originalPages;
+                let currentPages = window.currentPages;
+                
+                // 从高到低删除记录直到总页数在用户设定的范围内
+                if (subTaskOrderColumn && currentPages > targetMaxPages) {
+                    // 获取所有唯一的子任务顺序并排序（从高到低）
+                    const allOrders = [...new Set(rawData.map(row => parseInt(row[subTaskOrderColumn]) || 0))];
+                    allOrders.sort((a, b) => b - a);
+
+                    for (const order of allOrders) {
+                        if (currentPages <= targetMaxPages) break;
+                        
+                        const dataWithoutCurrentOrder = rawData.filter(row => {
+                            const rowOrder = parseInt(row[subTaskOrderColumn]) || 0;
+                            return rowOrder !== order;
+                        });
+                        
+                        const newPages = dataWithoutCurrentOrder.reduce((sum, row) => sum + (parseFloat(row[totalPagesColumn]) || 0), 0);
+                        
+                        // 检查删除后是否在目标范围内，或者是否会低于最小页数
+                        if (newPages >= targetMinPages || order === Math.min(...allOrders)) {
+                            rawData = dataWithoutCurrentOrder;
+                            currentPages = newPages;
+                        }
+                    }
+                }
+
+                // 步骤3：随机打乱剩余记录
+                shuffleArray(rawData);
+
+                // 保存处理后的数据
+                excelData = rawData;
+                taskCount = excelData.length;
+                totalPages = currentPages;
+
+                // 计算统计信息
+                const deletedCount = originalCount - taskCount;
+                const pagesReduced = originalPages - totalPages;
+
+                // 更新UI
+                document.getElementById('totalPages').textContent = totalPages;
+                document.getElementById('taskCount').textContent = taskCount;
+                document.getElementById('totalPagesSection').classList.remove('hidden');
+
+
+
+                // 显示处理结果
+                document.body.removeChild(processingToast);
+                
+                // 创建处理结果预览区域
+                const processingResult = document.createElement('div');
+                processingResult.className = 'mt-4 p-4 bg-green-50 rounded-lg border border-green-200';
+                processingResult.innerHTML = "<h4 class='text-lg font-semibold text-green-800 mb-2'>文件处理完成</h4><div class='grid grid-cols-1 md:grid-cols-2 gap-4'><div><p class='text-sm text-gray-600'>原始记录数: " + originalCount + "</p><p class='text-sm text-gray-600'>原始总页数: " + originalPages + "</p></div><div><p class='text-sm text-gray-600'>保留记录数: " + taskCount + "</p><p class='text-sm text-gray-600'>处理后总页数: <span class='font-bold text-green-700'>" + totalPages + "</span></p></div></div><div class='mt-2'><p class='text-sm text-gray-600'>删除记录数: " + deletedCount + "</p><p class='text-sm text-gray-600'>减少页数: " + pagesReduced + "</p></div>";
+                
+                // 插入到总页数信息下方
+                document.getElementById('totalPagesSection').appendChild(processingResult);
+
+                // 生成并显示Excel预览
+                generateExcelPreview(excelData);
+
+                // 生成并显示工作安排提示
+                generateWorkScheduleInfo(totalPages);
+
+                showToast('成功', '文件处理完成', 'success');
+                
+            } catch (error) {
+                console.error('Error processing file:', error);
+                document.body.removeChild(processingToast);
+                showToast('错误', '文件处理失败: ' + error.message, 'error');
+                removeFile();
+            }
+        });
 
         // 生成Excel文件预览
         function generateExcelPreview(data) {
@@ -2957,8 +3017,8 @@
           // 基础数据
           const totalPages = data.reduce((s, r) => s + (parseFloat(r["总页数"]) || 0), 0);
           const totalEvaluations = data.reduce((s, r) => s + (parseFloat(r["总评测数量"]) || 0), 0);
-          const inspectPages = Math.round(totalPages * inspectPercentage / 100);
-          const inspectEvaluations = Math.round(totalEvaluations * inspectPercentage / 100);
+          const inspectPages = Math.floor(totalPages * inspectPercentage / 100); // 使用向下取整，避免总页数过多
+          const inspectEvaluations = Math.floor(totalEvaluations * inspectPercentage / 100); // 使用向下取整，避免总评测数量过多
           const allManagers = [...new Set(data.map(r => r["负责人"]))];
           const managerCount = allManagers.length;
           if (managerCount === 0) return;
@@ -3007,13 +3067,17 @@
           const pagesDiff = Math.abs(currentSumPages - inspectPages);
           const evaluationsDiff = Math.abs(currentSumEvaluations - inspectEvaluations);
 
-          // 如果未达到抽取标准，继续随机抽取
+          // 如果未达到抽取标准，继续抽取
           if (pagesDiff > 8 || evaluationsDiff > 500) {
             // 收集所有剩余任务（排除已抽取的）
             const remainingTasks = allTasks.filter(task => !selected.some(s => s._originalIndex === task._originalIndex));
             
-            // 随机打乱剩余任务
-            shuffleArray(remainingTasks);
+            // 按总页数从小到大排序，优先选择总页数较小的任务
+            remainingTasks.sort((a, b) => {
+              const pagesA = parseFloat(a["总页数"]) || 0;
+              const pagesB = parseFloat(b["总页数"]) || 0;
+              return pagesA - pagesB;
+            });
 
             // 继续抽取直到达到要求
             for (const task of remainingTasks) {
