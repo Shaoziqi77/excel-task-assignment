@@ -535,7 +535,7 @@
                     <h3 class="text-xl font-semibold text-gray-800 mb-2">所有设置已完成</h3>
                     <p class="text-gray-600 mb-6">点击下方按钮生成并下载结果文件</p>
                     <button id="generateResultBtn" class="btn btn-success text-lg px-8 py-3">
-                        <i class="fa fa-download mr-2"></i>生成并下载Excel文件
+                        <i class="fa fa-file-excel-o mr-2"></i>生成Excel文件
                     </button>
                 </div>
                 
@@ -563,6 +563,20 @@
                             </a>
 
                         </div>
+                        
+                        <!-- 数据透视表预览 -->
+                        <div class="mt-4 mb-6">
+                            <h4 class="font-medium text-gray-700 mb-2">数据透视表预览</h4>
+                            <div id="pivotTablePreview" class="overflow-x-auto border border-gray-200 rounded-lg">
+                                <table class="min-w-full bg-white">
+                                    <thead>
+                                        <tr id="pivotTableHeader"></tr>
+                                    </thead>
+                                    <tbody id="pivotTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
                         <div class="flex flex-col sm:flex-row gap-3">
                             <button id="reallocateBtn" class="btn bg-gray-600 text-white hover:bg-gray-700 flex-1">
                                 <i class="fa fa-refresh mr-2"></i>重新分配
@@ -570,6 +584,19 @@
                             <button id="backToHomeBtn" class="btn bg-gray-600 text-white hover:bg-gray-700 flex-1">
                                 <i class="fa fa-home mr-2"></i>返回首页
                             </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 工作安排提示 -->
+                    <div class="mt-4 info-box">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-semibold text-gray-800">工作安排提示</h3>
+                            <button id="copyWorkArrangementBtn" class="btn btn-sm bg-gray-600 text-white hover:bg-gray-700">
+                                <i class="fa fa-copy mr-1"></i>复制
+                            </button>
+                        </div>
+                        <div class="p-4 bg-gray-100 rounded-lg">
+                            <p id="workArrangementText" class="text-lg font-medium text-gray-800 leading-relaxed">已分配</p>
                         </div>
                     </div>
                 </div>
@@ -933,6 +960,7 @@
             // 重新分配和返回首页按钮
             const reallocateBtn = document.getElementById('reallocateBtn');
             const backToHomeBtn = document.getElementById('backToHomeBtn');
+            const copyWorkArrangementBtn = document.getElementById('copyWorkArrangementBtn');
             
             if (reallocateBtn) {
                 reallocateBtn.addEventListener('click', generateResult);
@@ -941,6 +969,17 @@
             if (backToHomeBtn) {
                 backToHomeBtn.addEventListener('click', function() {
                     location.reload();
+                });
+            }
+            
+            if (copyWorkArrangementBtn) {
+                copyWorkArrangementBtn.addEventListener('click', function() {
+                    const workArrangementText = document.getElementById('workArrangementText').textContent;
+                    navigator.clipboard.writeText(workArrangementText).then(function() {
+                        showToast('成功', '已复制到剪贴板', 'success');
+                    }, function(err) {
+                        showToast('错误', '复制失败', 'error');
+                    });
                 });
             }
         }
@@ -2806,19 +2845,23 @@
                     downloadLink.download = fileName;
                     generatedFileName.textContent = fileName;
                     
+                    // 填充数据透视表预览
+                    populatePivotTablePreview(pivotData);
+                    // 对比负责人与检查人数据
+                    const isMatch = compareManagerInspectorData(pivotData);
+                    
                     // 更新UI
                     clearInterval(progressInterval);
                     generationProgress.querySelector('.progress-value').style.width = '100%';
                     generationStatusText.className = 'badge badge-green';
                     generationStatusText.textContent = '完成';
                     
-                    // 自动触发下载
-                    downloadLink.click();
-                    
                     setTimeout(() => {
                         generationStatus.classList.add('hidden');
                         downloadSection.classList.remove('hidden');
-                        showToast('成功', '任务分配结果已生成并自动下载', 'success');
+                        if (isMatch) {
+                            showToast('成功', '任务分配结果已生成，请预览数据透视表后下载', 'success');
+                        }
                     }, 500);
                     
                 } catch (error) {
@@ -2829,6 +2872,121 @@
                     showToast('错误', '文件生成失败', 'error');
                 }
             }, 2000);
+        }
+        
+        // 填充数据透视表预览
+        function populatePivotTablePreview(pivotData) {
+            const headerRow = document.getElementById('pivotTableHeader');
+            const body = document.getElementById('pivotTableBody');
+            
+            // 清空现有内容
+            headerRow.innerHTML = '';
+            body.innerHTML = '';
+            
+            // 填充表头
+            if (pivotData.length > 0) {
+                const headers = pivotData[1]; // 第二行是表头
+                headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-2 border border-gray-200 bg-gray-50 text-left text-sm font-medium text-gray-600';
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+                
+                // 填充数据行（从第三行开始，跳过第一行标题）
+                for (let i = 2; i < pivotData.length; i++) {
+                    const rowData = pivotData[i];
+                    const row = document.createElement('tr');
+                    
+                    rowData.forEach(cell => {
+                        const td = document.createElement('td');
+                        td.className = 'px-4 py-2 border border-gray-200 text-sm text-gray-700';
+                        td.textContent = cell;
+                        row.appendChild(td);
+                    });
+                    
+                    body.appendChild(row);
+                }
+            }
+        }
+        
+        // 对比负责人与检查人数据
+        function compareManagerInspectorData(pivotData) {
+            // 获取图片识别得到的负责人和检查人
+            const originalManagerNames = managerData.map(m => m.name);
+            const originalInspectorNames = inspectorData.map(i => i.name);
+            
+            // 从数据透视表中提取负责人和检查人
+            const pivotManagerNames = [];
+            const pivotInspectorNames = [];
+            
+            // 从第三行开始遍历数据（跳过标题行）
+            for (let i = 2; i < pivotData.length; i++) {
+                const row = pivotData[i];
+                if (row[0] && row[0] !== '总和') {
+                    pivotManagerNames.push(row[0]);
+                }
+                if (row[4] && row[4] !== '总和') {
+                    pivotInspectorNames.push(row[4]);
+                }
+            }
+            
+            // 检查负责人数量是否一致
+            if (originalManagerNames.length !== pivotManagerNames.length) {
+                showWarningToast('负责人数量与图片识别结果不一致，可能有缺漏，建议重新生成');
+                return false;
+            }
+            
+            // 检查检查人数量是否一致
+            if (originalInspectorNames.length !== pivotInspectorNames.length) {
+                showWarningToast('检查人数量与图片识别结果不一致，可能有缺漏，建议重新生成');
+                return false;
+            }
+            
+            // 检查负责人姓名是否一致
+            for (const name of originalManagerNames) {
+                if (!pivotManagerNames.includes(name)) {
+                    showWarningToast(`负责人 ${name} 未在分配结果中出现，可能有缺漏，建议重新生成`);
+                    return false;
+                }
+            }
+            
+            // 检查检查人姓名是否一致
+            for (const name of originalInspectorNames) {
+                if (!pivotInspectorNames.includes(name)) {
+                    showWarningToast(`检查人 ${name} 未在分配结果中出现，可能有缺漏，建议重新生成`);
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // 显示警告弹窗
+        function showWarningToast(message) {
+            // 创建警告弹窗
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-50 border border-red-200 text-red-800 px-6 py-4 rounded-lg shadow-lg z-50 max-w-md text-center';
+            toast.innerHTML = `
+                <div class="flex items-center justify-center">
+                    <i class="fa fa-exclamation-triangle text-2xl mr-3"></i>
+                    <div>
+                        <h4 class="font-semibold text-lg mb-1">警告</h4>
+                        <p>${message}</p>
+                    </div>
+                </div>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(toast);
+            
+            // 3秒后自动关闭
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
         }
 
         // 分配负责人（保持原始顺序）
