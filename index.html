@@ -273,16 +273,24 @@
                 <!-- 信息展示模块 -->
                 <div id="infoDisplayModule" class="mt-4 hidden">
                     <div class="info-box">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="font-semibold text-gray-800">工作安排提示</h3>
-                            <button id="copyInfoBtn" class="btn btn-sm bg-gray-600 text-white hover:bg-gray-700">
-                                <i class="fa fa-copy mr-1"></i>复制
-                            </button>
-                        </div>
-                        <div class="p-4 bg-gray-100 rounded-lg">
-                            <p id="workScheduleText" class="text-lg font-medium text-gray-800 leading-relaxed">
-                                今天约有0页周期任务，请大家按比例报名，需在下一个工作日 17:00前完成
-                            </p>
+                        <h3 class="font-semibold text-gray-800 mb-3">工作安排提示</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-start justify-between p-4 bg-gray-100 rounded-lg">
+                                <p id="workScheduleText" class="text-lg font-medium text-gray-800 leading-relaxed flex-1">
+                                    今天约有0页周期任务，请大家按比例报名，需在下一个工作日 17:00前完成
+                                </p>
+                                <button id="copyWorkScheduleBtn" class="btn btn-sm bg-gray-600 text-white hover:bg-gray-700 ml-4 whitespace-nowrap">
+                                    <i class="fa fa-copy mr-1"></i>复制
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-4 bg-gray-100 rounded-lg">
+                                <p id="checkText" class="text-lg font-medium text-gray-800 leading-relaxed flex-1">
+                                    报检查
+                                </p>
+                                <button id="copyCheckBtn" class="btn btn-sm bg-gray-600 text-white hover:bg-gray-700 ml-4 whitespace-nowrap">
+                                    <i class="fa fa-copy mr-1"></i>复制
+                                </button>
+                            </div>
                         </div>
                         <div id="copySuccessToast" class="mt-2 hidden">
                             <div class="bg-green-50 text-green-700 text-sm px-3 py-1 rounded flex items-center">
@@ -915,10 +923,30 @@
             });
 
             // 复制按钮事件处理
-            const copyInfoBtn = document.getElementById('copyInfoBtn');
-            if (copyInfoBtn) {
-                copyInfoBtn.addEventListener('click', function() {
-                    const textToCopy = document.getElementById('workScheduleText').textContent;
+            // 复制工作安排提示文案
+            const copyWorkScheduleBtn = document.getElementById('copyWorkScheduleBtn');
+            if (copyWorkScheduleBtn) {
+                copyWorkScheduleBtn.addEventListener('click', function() {
+                    const textToCopy = document.getElementById('workScheduleText').textContent.trim();
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        // 显示复制成功提示
+                        const copySuccessToast = document.getElementById('copySuccessToast');
+                        copySuccessToast.classList.remove('hidden');
+                        setTimeout(() => {
+                            copySuccessToast.classList.add('hidden');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('复制失败:', err);
+                        showToast('错误', '复制失败，请手动复制', 'error');
+                    });
+                });
+            }
+            
+            // 复制报检查文案
+            const copyCheckBtn = document.getElementById('copyCheckBtn');
+            if (copyCheckBtn) {
+                copyCheckBtn.addEventListener('click', function() {
+                    const textToCopy = document.getElementById('checkText').textContent.trim();
                     navigator.clipboard.writeText(textToCopy).then(() => {
                         // 显示复制成功提示
                         const copySuccessToast = document.getElementById('copySuccessToast');
