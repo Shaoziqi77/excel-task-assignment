@@ -220,14 +220,27 @@
                     <div class="info-box">
                         <h3 class="font-medium text-gray-800 mb-3">设置目标页数范围</h3>
                         <div class="space-y-4">
+                            <!-- 快捷按钮 -->
+                            <div class="flex flex-wrap gap-3">
+                                <button id="quickRangeBtn1" class="btn" style="background-color: #1a56db; color: #ffffff;">
+                                    <i class="fa fa-fast-forward mr-1"></i>200~250页
+                                </button>
+                                <button id="quickRangeBtn2" class="btn" style="background-color: #1a56db; color: #ffffff;">
+                                    <i class="fa fa-fast-forward mr-1"></i>450~500页
+                                </button>
+                                <button id="quickRangeBtn3" class="btn" style="background-color: #1a56db; color: #ffffff;">
+                                    <i class="fa fa-fast-forward mr-1"></i>550~600页
+                                </button>
+                            </div>
+                            <!-- 手动输入 -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="p-4 bg-blue-50 rounded-lg">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">最小目标页数</label>
-                                    <input type="number" id="minPagesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="450" min="0">
+                                    <input type="number" id="minPagesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" min="0">
                                 </div>
                                 <div class="p-4 bg-blue-50 rounded-lg">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">最大目标页数</label>
-                                    <input type="number" id="maxPagesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value="500" min="0">
+                                    <input type="number" id="maxPagesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" min="0">
                                 </div>
                             </div>
                             <div class="p-4 bg-blue-50 rounded-lg">
@@ -317,9 +330,14 @@
                             <h3 class="text-base font-medium text-primary mb-2">拖拽微信截图到此处，或点击上传</h3>
                             <p class="text-gray-600 text-sm mb-4">支持 .jpg, .jpeg, .png 格式</p>
                             <input type="file" id="managerScreenshotInput" class="hidden" accept="image/*" multiple="">
-                            <button id="managerScreenshotBtn" class="btn btn-primary">
-                                <i class="fa fa-image mr-2"></i>选择图片
-                            </button>
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <button id="managerScreenshotBtn" class="btn btn-primary" style="width: 150px;">
+                                    <i class="fa fa-image mr-2"></i>选择图片
+                                </button>
+                                <button id="testManagerBtn" class="btn bg-yellow-500 text-white hover:bg-yellow-600" style="width: 150px;">
+                                    <i class="fa fa-flask mr-2"></i>测试
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div id="managerScreenshotPreview" class="mt-4 hidden">
@@ -327,10 +345,10 @@
                             <!-- Preview images will be added here -->
                         </div>
                         <div class="mt-4 flex flex-col sm:flex-row gap-3">
-                            <button id="recognizeManagerBtn" class="btn bg-gray-200 text-gray-700 hover:bg-gray-300 flex-1">
+                            <button id="recognizeManagerBtn" class="btn bg-blue-600 text-white hover:bg-blue-700 flex-1">
                                 <i class="fa fa-file-text-o mr-2"></i>识别文字
                             </button>
-                            <button id="addMoreManagerBtn" class="btn bg-gray-200 text-gray-700 hover:bg-gray-300 flex-1">
+                            <button id="addMoreManagerBtn" class="btn bg-blue-600 text-white hover:bg-blue-700 flex-1">
                                 <i class="fa fa-plus mr-2"></i>添加更多图片
                             </button>
                         </div>
@@ -417,9 +435,14 @@
                             <p class="text-gray-600 mb-2">拖拽微信截图到此处，或点击上传</p>
                             <p class="text-gray-500 text-sm">支持 .jpg, .jpeg, .png 格式</p>
                             <input type="file" id="inspectorScreenshotInput" class="hidden" accept="image/*" multiple="">
-                            <button id="inspectorScreenshotBtn" class="btn btn-primary mt-4">
-                                <i class="fa fa-image mr-2"></i>选择图片
-                            </button>
+                            <div class="flex flex-col sm:flex-row gap-3 mt-4">
+                                <button id="inspectorScreenshotBtn" class="btn btn-primary" style="width: 150px;">
+                                    <i class="fa fa-image mr-2"></i>选择图片
+                                </button>
+                                <button id="testInspectorBtn" class="btn bg-yellow-500 text-white hover:bg-yellow-600" style="width: 150px;">
+                                    <i class="fa fa-flask mr-2"></i>测试
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div id="inspectorScreenshotPreview" class="mt-4 hidden">
@@ -889,6 +912,21 @@
             processManagerTextBtn.addEventListener('click', processManagerText);
             clearManagerBtn.addEventListener('click', clearManagerData);
             managerProcessedText.addEventListener('input', validateManagerText);
+            
+            // 负责人测试按钮
+            const testManagerBtn = document.getElementById('testManagerBtn');
+            testManagerBtn.addEventListener('click', () => {
+                const testManagerText = "符于娜：5\n李梦洁：5\n李迪：5\n蹇文慧：5\n李旻羲：5\n李橙橙：5\n来晨：5\n郝佳益：5\n王国通：5\n郭小雨：5\n李梦园：5\n汪哲锐：5\n韩正：5\n刘雨菲：5\n段凯莉：5\n马壮：5";
+                document.getElementById('managerOcrText').value = testManagerText;
+                document.getElementById('managerScreenshotPreview').classList.remove('hidden');
+                document.getElementById('managerOcrResult').classList.remove('hidden');
+                document.getElementById('managerOcrStatus').textContent = '已完成';
+                document.getElementById('managerOcrStatus').className = 'badge badge-green';
+                // 自动执行文字处理
+                setTimeout(() => {
+                    processManagerText();
+                }, 500);
+            });
 
             // 检查人截图上传
             inspectorScreenshotBtn.addEventListener('click', () => inspectorScreenshotInput.click());
@@ -911,6 +949,21 @@
             processInspectorTextBtn.addEventListener('click', processInspectorText);
             clearInspectorBtn.addEventListener('click', clearInspectorData);
             inspectorProcessedText.addEventListener('input', validateInspectorText);
+            
+            // 检查人测试按钮
+            const testInspectorBtn = document.getElementById('testInspectorBtn');
+            testInspectorBtn.addEventListener('click', () => {
+                const testInspectorText = "郭小雨：5\n符于娜：5\n李橙橙：5";
+                document.getElementById('inspectorOcrText').value = testInspectorText;
+                document.getElementById('inspectorScreenshotPreview').classList.remove('hidden');
+                document.getElementById('inspectorOcrResult').classList.remove('hidden');
+                document.getElementById('inspectorOcrStatus').textContent = '已完成';
+                document.getElementById('inspectorOcrStatus').className = 'badge badge-green';
+                // 自动执行文字处理
+                setTimeout(() => {
+                    processInspectorText();
+                }, 500);
+            });
 
             // 检查比例数字输入
             inspectPercentageElement.addEventListener('input', (e) => {
@@ -991,7 +1044,10 @@
             const copyWorkArrangementBtn = document.getElementById('copyWorkArrangementBtn');
             
             if (reallocateBtn) {
-                reallocateBtn.addEventListener('click', generateResult);
+                reallocateBtn.addEventListener('click', function() {
+                    regenerateCount = 0; // 重置计数
+                    generateResult(false);
+                });
             }
             
             if (backToHomeBtn) {
@@ -1225,6 +1281,22 @@
             };
             reader.readAsArrayBuffer(file);
         }
+
+        // 快捷范围按钮点击事件
+        document.getElementById('quickRangeBtn1').addEventListener('click', function() {
+            document.getElementById('minPagesInput').value = '200';
+            document.getElementById('maxPagesInput').value = '250';
+        });
+        
+        document.getElementById('quickRangeBtn2').addEventListener('click', function() {
+            document.getElementById('minPagesInput').value = '450';
+            document.getElementById('maxPagesInput').value = '500';
+        });
+        
+        document.getElementById('quickRangeBtn3').addEventListener('click', function() {
+            document.getElementById('minPagesInput').value = '550';
+            document.getElementById('maxPagesInput').value = '600';
+        });
 
         // 处理文件按钮点击事件
         document.getElementById('processFileBtn').addEventListener('click', function() {
@@ -2697,8 +2769,26 @@
             showToast('成功', '应用已重置，可以开始新的任务分配', 'success');
         }
 
+        // 自动重新分配计数器
+        let regenerateCount = 0;
+        const maxRegenerateCount = 10;
+        
         // 生成结果
-        function generateResult() {
+        function generateResult(shouldRegenerate = false) {
+            // 如果是自动重新分配，增加重试计数
+            if (shouldRegenerate) {
+                regenerateCount++;
+            } else {
+                regenerateCount = 0; // 重置计数
+            }
+            
+            // 检查重试次数
+            if (regenerateCount > maxRegenerateCount) {
+                // 显示弹窗提醒用户是否继续重试或退回首页
+                showRetryExceededModal();
+                return;
+            }
+            
             if (!uploadedFile || !excelData || managerData.length === 0 || inspectorData.length === 0) {
                 showToast('错误', '数据不完整，无法生成结果', 'error');
                 return;
@@ -2878,6 +2968,20 @@
                     // 对比负责人与检查人数据
                     const isMatch = compareManagerInspectorData(pivotData);
                     
+                    // 如果不匹配且重试次数未达上限，自动重新分配
+                    if (!isMatch && regenerateCount <= maxRegenerateCount) {
+                        clearInterval(progressInterval);
+                        generationProgress.querySelector('.progress-value').style.width = '100%';
+                        generationStatusText.className = 'badge badge-yellow';
+                        generationStatusText.textContent = '重新分配中...';
+                        showToast('提示', `检测到数据不匹配，正在第 ${regenerateCount} 次自动重新分配...`, 'info');
+                        
+                        setTimeout(() => {
+                            generateResult(true); // 自动重新分配
+                        }, 1000);
+                        return; // 跳过后续步骤，等待重新分配
+                    }
+                    
                     // 更新UI
                     clearInterval(progressInterval);
                     generationProgress.querySelector('.progress-value').style.width = '100%';
@@ -2900,6 +3004,49 @@
                     showToast('错误', '文件生成失败', 'error');
                 }
             }, 2000);
+        }
+        
+        // 重试次数超过限制时显示弹窗
+        function showRetryExceededModal() {
+            // 创建弹窗
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl';
+            
+            modalContent.innerHTML = `
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa fa-exclamation-triangle text-3xl text-red-500"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">重试次数已达上限</h3>
+                    <p class="text-gray-600 mb-6">系统已尝试${maxRegenerateCount}次自动重新分配，但仍未匹配成功。</p>
+                    <div class="flex gap-3">
+                        <button id="retryAgainBtn" class="btn btn-primary flex-1">
+                            <i class="fa fa-refresh mr-2"></i>继续重试
+                        </button>
+                        <button id="goHomeBtn" class="btn btn-gray flex-1">
+                            <i class="fa fa-home mr-2"></i>返回首页
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+            
+            // 绑定事件
+            document.getElementById('retryAgainBtn').addEventListener('click', function() {
+                regenerateCount = 0; // 重置计数
+                document.body.removeChild(modal);
+                generateResult(false); // 重新开始生成
+            });
+            
+            document.getElementById('goHomeBtn').addEventListener('click', function() {
+                document.body.removeChild(modal);
+                location.reload(); // 返回首页
+            });
         }
         
         // 填充数据透视表预览
@@ -3203,29 +3350,38 @@
           // 基础数据
           const totalPages = data.reduce((s, r) => s + (parseFloat(r["总页数"]) || 0), 0);
           const totalEvaluations = data.reduce((s, r) => s + (parseFloat(r["总评测数量"]) || 0), 0);
-          const inspectPages = Math.floor(totalPages * inspectPercentage / 100); // 使用向下取整，避免总页数过多
-          const inspectEvaluations = Math.floor(totalEvaluations * inspectPercentage / 100); // 使用向下取整，避免总评测数量过多
+          const inspectPages = Math.floor(totalPages * inspectPercentage / 100);
+          const inspectEvaluations = Math.floor(totalEvaluations * inspectPercentage / 100);
           const allManagers = [...new Set(data.map(r => r["负责人"]))];
           const managerCount = allManagers.length;
           if (managerCount === 0) return;
 
-          // 按负责人分组任务池
+          // 根据总页数确定动态参数
+          const { forceExtractCount, pageThreshold, evaluationThreshold } = getDynamicParams(totalPages);
+
+          // 按负责人分组任务池，按总页数从小到大排序
           const taskPool = {};
           allManagers.forEach(m => {
             const tasks = [...data.filter(r => r["负责人"] === m)];
-            shuffleArray(tasks); // 随机打乱
+            // 按总页数从小到大排序，优先选择页数小的任务
+            tasks.sort((a, b) => {
+              const pagesA = parseFloat(a["总页数"]) || 0;
+              const pagesB = parseFloat(b["总页数"]) || 0;
+              return pagesA - pagesB;
+            });
             taskPool[m] = tasks;
           });
 
-          // 第一步：从每个负责人的任务组中随机抽取一条任务
+          // 第一步：从每个负责人的任务组中抽取页数最小的一条任务
           const selected = [];
           let currentSumPages = 0;
           let currentSumEvaluations = 0;
 
-          // 确保每个负责人至少有一个被抽中的任务
+          // 确保每个负责人至少有一个被抽中的任务（优先抽取页数最小的）
           allManagers.forEach(m => {
             const pool = taskPool[m];
             if (pool && pool.length > 0) {
+              // 从排序后的任务池中取第一个（页数最小的）
               const task = pool.shift();
               selected.push(task);
               currentSumPages += parseFloat(task["总页数"]) || 0;
@@ -3233,29 +3389,24 @@
             }
           });
 
-          // 第二步：强制随机从所有任务中抽取6条检查任务
-          // 收集所有任务（包括已抽取和未抽取的）
+          // 第二步：根据总页数动态强制抽取检查任务
           const allTasks = [...data];
-          // 过滤掉已抽取的任务
           const availableTasks = allTasks.filter(task => !selected.some(s => s._originalIndex === task._originalIndex));
-          // 随机打乱
           shuffleArray(availableTasks);
-          // 抽取最多6条任务
-          const additionalTasks = availableTasks.slice(0, 6);
-          // 添加到已选择的任务中
+          // 根据动态参数抽取任务
+          const additionalTasks = availableTasks.slice(0, forceExtractCount);
           additionalTasks.forEach(task => {
             selected.push(task);
             currentSumPages += parseFloat(task["总页数"]) || 0;
             currentSumEvaluations += parseFloat(task["总评测数量"]) || 0;
           });
 
-          // 第三步：检查是否达到抽取标准
-          const pagesDiff = Math.abs(currentSumPages - inspectPages);
-          const evaluationsDiff = Math.abs(currentSumEvaluations - inspectEvaluations);
+          // 第三步：检查是否达到抽取标准（使用动态阈值）
+          let pagesDiff = Math.abs(currentSumPages - inspectPages);
+          let evaluationsDiff = Math.abs(currentSumEvaluations - inspectEvaluations);
 
           // 如果未达到抽取标准，继续抽取
-          if (pagesDiff > 8 || evaluationsDiff > 500) {
-            // 收集所有剩余任务（排除已抽取的）
+          if (pagesDiff > pageThreshold || evaluationsDiff > evaluationThreshold) {
             const remainingTasks = allTasks.filter(task => !selected.some(s => s._originalIndex === task._originalIndex));
             
             // 按总页数从小到大排序，优先选择总页数较小的任务
@@ -3265,28 +3416,92 @@
               return pagesA - pagesB;
             });
 
-            // 继续抽取直到达到要求
-            for (const task of remainingTasks) {
-              const p = parseFloat(task["总页数"]) || 0;
-              const e = parseFloat(task["总评测数量"]) || 0;
+            // 改进的抽取逻辑：先尝试精确匹配，再允许适度超标
+            let attempts = 0;
+            let exactMatchFound = true;
+            
+            // 增加最大抽取比例限制（最多抽取目标比例+5%，例如10%最多抽取到15%），防止过度抽取
+            const maxExtractRatio = Math.min(inspectPercentage / 100 + 0.05, 0.5);
+            const maxExtractCount = Math.floor(data.length * maxExtractRatio);
+            
+            while ((pagesDiff > pageThreshold || evaluationsDiff > evaluationThreshold) && 
+                   remainingTasks.length > 0 && 
+                   attempts < 200 &&
+                   selected.length < maxExtractCount) {
+              attempts++;
               
-              // 检查添加后是否在允许范围内
-              const newPages = currentSumPages + p;
-              const newEvaluations = currentSumEvaluations + e;
-              const newPagesDiff = Math.abs(newPages - inspectPages);
-              const newEvaluationsDiff = Math.abs(newEvaluations - inspectEvaluations);
-              
-              if (newPagesDiff <= 8 && newEvaluationsDiff <= 500) {
+              if (exactMatchFound) {
+                // 先尝试精确匹配（同时满足两个阈值）
+                const exactMatchIndex = remainingTasks.findIndex(task => {
+                  const p = parseFloat(task["总页数"]) || 0;
+                  const e = parseFloat(task["总评测数量"]) || 0;
+                  const newPages = currentSumPages + p;
+                  const newEvaluations = currentSumEvaluations + e;
+                  return Math.abs(newPages - inspectPages) <= pageThreshold && 
+                         Math.abs(newEvaluations - inspectEvaluations) <= evaluationThreshold;
+                });
+                
+                if (exactMatchIndex !== -1) {
+                  const task = remainingTasks.splice(exactMatchIndex, 1)[0];
+                  selected.push(task);
+                  currentSumPages += parseFloat(task["总页数"]) || 0;
+                  currentSumEvaluations += parseFloat(task["总评测数量"]) || 0;
+                } else {
+                  exactMatchFound = false;
+                }
+              } else {
+                // 允许适度超标，优先选择页数较小的任务
+                const task = remainingTasks.shift();
                 selected.push(task);
-                currentSumPages = newPages;
-                currentSumEvaluations = newEvaluations;
+                currentSumPages += parseFloat(task["总页数"]) || 0;
+                currentSumEvaluations += parseFloat(task["总评测数量"]) || 0;
               }
               
-              // 检查是否已达到要求
-              if (newPagesDiff <= 8 && newEvaluationsDiff <= 500) {
+              // 更新偏差
+              pagesDiff = Math.abs(currentSumPages - inspectPages);
+              evaluationsDiff = Math.abs(currentSumEvaluations - inspectEvaluations);
+              
+              // 如果页数已经达到或超过目标，停止抽取（优先保证页数比例）
+              if (currentSumPages >= inspectPages) {
+                break;
+              }
+              
+              // 如果已经非常接近目标，停止抽取
+              if (pagesDiff <= pageThreshold * 1.5 && evaluationsDiff <= evaluationThreshold * 1.5) {
                 break;
               }
             }
+          }
+          
+          // 根据总页数确定动态参数的函数
+          function getDynamicParams(totalPages) {
+            let forceExtractCount = 6;
+            let pageThreshold = 8;
+            let evaluationThreshold = 500;
+            
+            const hundreds = Math.floor(totalPages / 100);
+            
+            // 根据总页数范围动态调整参数
+            if (totalPages >= 550 && totalPages <= 600) {
+              forceExtractCount = hundreds + 2; // 7条
+              pageThreshold = 15;
+              evaluationThreshold = 800;
+            } else if (totalPages >= 450 && totalPages <= 500) {
+              forceExtractCount = hundreds + 1; // 5条
+              pageThreshold = 12;
+              evaluationThreshold = 600;
+            } else if (totalPages >= 200 && totalPages <= 250) {
+              forceExtractCount = Math.max(2, hundreds);
+              pageThreshold = 4;
+              evaluationThreshold = 200;
+            } else {
+              const ratio = Math.min(totalPages / 500, 1.5);
+              forceExtractCount = Math.max(2, Math.floor((hundreds + 1) * ratio));
+              pageThreshold = Math.max(4, Math.floor(12 * ratio));
+              evaluationThreshold = Math.max(200, Math.floor(600 * ratio));
+            }
+            
+            return { forceExtractCount, pageThreshold, evaluationThreshold };
           }
 
           // 按原始顺序排序
