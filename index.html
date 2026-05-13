@@ -841,6 +841,15 @@
             }
             const dateString = tomorrow.toISOString().split('T')[0];
             deliveryDate.value = dateString;
+            
+            // 根据下一个工作日是否为周四设置默认时间
+            // 周四默认14:00，其他工作日默认17:00
+            if (tomorrow.getDay() === 4) { // 周四
+                deliveryTime.value = '14:00';
+            } else {
+                deliveryTime.value = '17:00';
+            }
+            
             updateFormattedDeliveryTime();
 
             // 初始化进度条
